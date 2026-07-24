@@ -1,0 +1,4 @@
+# Shell scripts must stay LF so they run inside Linux containers.
+*.sh text eol=lf
+runner/build.sh text eol=lf
+runner/install-libs.sh text eol=lf

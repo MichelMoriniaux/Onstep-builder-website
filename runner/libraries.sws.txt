@@ -1,0 +1,11 @@
+# SmartWebServer library manifest — transcribed from
+# Trident-GTR-Auto/.github/workflows/compile-onstepx-perso.yaml (compile-sws job)
+#
+# Format, one entry per line:
+#   git  <folder-name>  <url>  [ref]     -> git clone into user libraries dir (ref optional = default branch)
+#   lib  <name>[@version]                -> arduino-cli lib install from Library Manager
+#
+# Blank lines and lines starting with # are ignored.
+
+lib  ArduinoMDNS
+git  Ethernet   https://github.com/hjd1964/Ethernet.git

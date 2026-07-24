@@ -1,0 +1,22 @@
+# OnStepX library manifest — transcribed from
+# Trident-GTR-Auto/.github/workflows/compile-onstepx-perso.yaml
+#
+# Format, one entry per line:
+#   git  <folder-name>  <url>  [ref]     -> git clone into user libraries dir (ref optional = default branch)
+#   lib  <name>[@version]                -> arduino-cli lib install from Library Manager
+#
+# Blank lines and lines starting with # are ignored.
+
+git  SimpleKalmanFilter        https://github.com/denyssene/SimpleKalmanFilter.git
+git  TMCStepper                https://github.com/teemuatlut/TMCStepper.git
+git  QuickPID                  https://github.com/Dlloydev/QuickPID.git
+git  CurveFitting              https://github.com/Rotario/arduinoCurveFitting.git
+git  Rtc                       https://github.com/Makuna/Rtc.git
+git  Adafruit_BME280_Library   https://github.com/adafruit/Adafruit_BME280_Library.git   2.2.2
+git  OneWire                   https://github.com/hjd1964/OneWire.git
+git  TMC2209                   https://github.com/hjd1964/TMC2209.git
+git  Adafruit_BusIO            https://github.com/adafruit/Adafruit_BusIO.git             1.16.1
+git  Adafruit_Sensor           https://github.com/adafruit/Adafruit_Sensor.git           1.1.7
+lib  ArduinoMDNS
+lib  EspSoftwareSerial
+lib  TinyGPSPlus

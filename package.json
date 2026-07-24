@@ -1,0 +1,20 @@
+{
+  "name": "onstep-builder-website",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Web app to build OnStepX and SmartWebServer firmware images on demand.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:api": "npm run dev --workspace @onstep/api",
+    "dev:worker": "npm run dev --workspace @onstep/worker",
+    "dev:web": "npm run dev --workspace @onstep/web",
+    "runner:build": "docker build -t onstep-builder-runner ./runner"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

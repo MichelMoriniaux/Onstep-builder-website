@@ -1,0 +1,63 @@
+# Single-host deployment: web (nginx) + api + worker + redis.
+#
+# The worker spawns runner containers via the host Docker daemon, so it mounts
+# the docker socket and shares ./data with the host. Because those runner
+# containers are siblings (created by the host daemon, not nested), their bind
+# mounts must use HOST paths — set HOST_DATA_DIR to the ABSOLUTE host path of
+# ./data (see .env.example). This works cleanly on a Linux host.
+#
+# Prereq: build the runner image once:  docker build -t onstep-builder-runner ./runner
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /app/data
+      PORT: "8080"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /app/data
+      # Host-visible path to ./data so runner bind mounts resolve on the daemon.
+      JOBS_HOST_DIR: ${HOST_DATA_DIR}
+      RUNNER_IMAGE: onstep-builder-runner
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      BUILD_TIMEOUT_MS: ${BUILD_TIMEOUT_MS:-900000}
+      ARTIFACT_TTL_HOURS: ${ARTIFACT_TTL_HOURS:-24}
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8088}:80"
+    depends_on:
+      - api
+
+volumes:
+  redis-data:
