@@ -17,6 +17,8 @@ git  OneWire                   https://github.com/hjd1964/OneWire.git
 git  TMC2209                   https://github.com/hjd1964/TMC2209.git
 git  Adafruit_BusIO            https://github.com/adafruit/Adafruit_BusIO.git             1.16.1
 git  Adafruit_Sensor           https://github.com/adafruit/Adafruit_Sensor.git           1.1.7
+# Time provides TimeLib.h, required by OnStepX when the TIME source is NTP.
+git  Time                      https://github.com/PaulStoffregen/Time.git
 lib  ArduinoMDNS
 lib  EspSoftwareSerial
 lib  TinyGPSPlus

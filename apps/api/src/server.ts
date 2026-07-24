@@ -9,9 +9,11 @@ import { z } from "zod";
 import {
   ALLOWED_CONFIG_FILES,
   BuildRecord,
+  DEFAULT_ANSWERS,
   DEFAULT_REFS,
   FIRMWARES,
   FirmwareTarget,
+  GeneratorAnswers,
   LIMITS,
   REQUIRED_CONFIG_FILE,
   RunnerSpec,
@@ -19,6 +21,7 @@ import {
   artifactContentType,
 } from "@onstep/shared";
 import { config } from "./config.js";
+import { generateConfigs } from "./generator/generate.js";
 import { buildQueue } from "./queue.js";
 import {
   ensureDir,
@@ -42,6 +45,15 @@ const specSchema = z.object({
     .max(FIRMWARES.length),
 });
 
+// Generator answers: enums for the two that branch template selection/logic,
+// every other field is a bounded string (merged onto DEFAULT_ANSWERS).
+const answersSchema = z
+  .object({
+    version: z.enum(["10.25p", "10.28u"]),
+    model: z.enum(["GTR", "P75"]),
+  })
+  .catchall(z.string().max(256));
+
 // In-memory collected upload: firmware -> filename -> buffer
 type Collected = Map<FirmwareTarget, Map<string, Buffer>>;
 
@@ -59,6 +71,26 @@ export async function buildServer() {
   });
 
   app.get("/api/health", async () => ({ ok: true }));
+
+  // ---- generate JTW mount configs from wizard answers -----------------------
+  app.post(
+    "/api/generate",
+    { config: { rateLimit: { max: config.rateLimit.max, timeWindow: config.rateLimit.windowMs } } },
+    async (req, reply) => {
+      const parsed = answersSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "invalid answers", detail: parsed.error.message });
+      }
+      const answers = { ...DEFAULT_ANSWERS, ...parsed.data } as GeneratorAnswers;
+      try {
+        const files = await generateConfigs(answers);
+        return files;
+      } catch (err) {
+        req.log.error(err);
+        return reply.code(500).send({ error: "generation failed", detail: String((err as Error).message) });
+      }
+    }
+  );
 
   // ---- submit a build -------------------------------------------------------
   app.post(

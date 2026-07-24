@@ -1,4 +1,9 @@
-import type { BuildRecord, FirmwareTarget } from "@onstep/shared";
+import type {
+  BuildRecord,
+  FirmwareTarget,
+  GeneratedFiles,
+  GeneratorAnswers,
+} from "@onstep/shared";
 
 export interface TargetInput {
   firmware: FirmwareTarget;
@@ -30,6 +35,19 @@ export async function submitBuild(targets: TargetInput[]): Promise<string> {
     throw new Error(body.error ?? `submit failed (${res.status})`);
   }
   return (await res.json()).id as string;
+}
+
+export async function generateConfigs(answers: GeneratorAnswers): Promise<GeneratedFiles> {
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(answers),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `generate failed (${res.status})`);
+  }
+  return res.json();
 }
 
 export async function getBuild(id: string): Promise<BuildRecord> {

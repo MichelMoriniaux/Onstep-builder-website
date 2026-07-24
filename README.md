@@ -1,4 +1,4 @@
-# OnStep Firmware Builder
+# Firmware Builder for JTW mounts
 
 A self-service website that compiles **OnStepX** and **SmartWebServer** firmware for the
 ESP32 on demand. Upload your `Config.h` (+ optional `Extended.config.h` / `Plugins.config.h`),
@@ -8,6 +8,24 @@ isolated, resource-limited Docker container.
 
 Inspired by the workflows in
 [MichelMoriniaux/Trident-GTR-Auto](https://github.com/MichelMoriniaux/Trident-GTR-Auto).
+
+## Config sources
+
+The UI offers two ways to supply the configuration:
+
+1. **Upload configs** — bring your own `Config.h` / `Extended.config.h` / `Plugins.config.h`.
+2. **Configure a JTW mount** — a wizard (extended from the
+   [JTW-Trident-Mounts generator](https://github.com/MichelMoriniaux/JTW-Trident-Mounts/tree/main/generator))
+   that generates OnStepX + SmartWebServer configs from a set of options. This is specific to
+   **JTW Trident / P75 mounts** on the Manticore controller, not generic OnStepX. Options include
+   model, encoders, per-axis motor/encoder reversal, the 6 servo PID parameters per axis, PEC,
+   homing, Wi-Fi/Ethernet, weather probe and clock source. `POST /api/generate` performs the
+   template substitution server-side.
+
+   Configs are **version-targeted** (`VERSIONS` in `packages/shared/src/generator.ts`): each
+   firmware version (e.g. `10.28u`, `10.25p`) has its own template set under
+   `apps/api/src/generator/templates/<version>/` and its own pinned source refs, which become the
+   build's default refs. Generated configs are validated to compile at those refs.
 
 ## How a build works
 

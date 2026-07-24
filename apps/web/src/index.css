@@ -5,3 +5,22 @@
 html {
   color-scheme: light dark;
 }
+
+/* Config preview syntax highlighting (rendered on a dark slate-900 <pre>). */
+.tok-com {
+  color: #7c8aa5;
+  font-style: italic;
+}
+.tok-pp {
+  color: #c792ea;
+}
+.tok-str {
+  color: #7ee787;
+}
+.tok-num {
+  color: #ffcb6b;
+}
+.tok-kw {
+  color: #82aaff;
+  font-weight: 600;
+}

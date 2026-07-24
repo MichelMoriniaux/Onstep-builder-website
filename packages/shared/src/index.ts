@@ -83,6 +83,8 @@ export const jobPaths = {
   buildJson: () => `build.json`,
 };
 
+export * from "./generator.js";
+
 export function artifactContentType(name: string): string {
   if (name.endsWith(".zip")) return "application/zip";
   if (name.endsWith(".log")) return "text/plain; charset=utf-8";
