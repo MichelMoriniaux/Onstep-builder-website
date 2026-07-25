@@ -70,6 +70,11 @@ export function GeneratorWizard({ answers, onChange }: Props) {
                 onChange={(c) => set({ wifi_sta: c ? "true" : "false" })}
               />
             </div>
+            {answers.wifi_ap !== "true" && answers.wifi_sta !== "true" && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Both access point and station are off — Wi-Fi will be disabled in the build.
+              </p>
+            )}
             {answers.wifi_ap === "true" && (
               <Grid>
                 <Text label="AP SSID" value={answers.ap_ssid} onChange={(v) => set({ ap_ssid: v })} />

@@ -181,9 +181,18 @@ export interface GeneratedFiles {
   sws: { "Config.h": string; "Extended.config.h": string };
 }
 
-/** Whether the OnStepX build needs the website plugin (Wi-Fi on). */
+/**
+ * Wi-Fi is only actually active when enabled AND at least one of AP / station is
+ * on. Enabling Wi-Fi with both off deactivates the whole feature (otherwise the
+ * website plugin + MDNS would be built against an OFF radio and fail to compile).
+ */
+export function wifiActive(a: GeneratorAnswers): boolean {
+  return a.wifi_enabled === "true" && (a.wifi_ap === "true" || a.wifi_sta === "true");
+}
+
+/** Whether the OnStepX build needs the website plugin (Wi-Fi active). */
 export function wifiNeedsPlugin(a: GeneratorAnswers): boolean {
-  return a.wifi_enabled === "true";
+  return wifiActive(a);
 }
 
 export interface GenOption {
@@ -596,13 +605,14 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
   c.display_high_precision = a.display_high_precision;
   c.home_switch = a.home_switch;
 
-  // Wi-Fi (AP and station independent).
-  const staOn = a.wifi_enabled === "true" && a.wifi_sta === "true";
-  if (a.wifi_enabled === "true") {
+  // Wi-Fi (AP and station independent). Both off => Wi-Fi fully deactivated.
+  const active = wifiActive(a);
+  const staOn = active && a.wifi_sta === "true";
+  if (active) {
     const ap = a.wifi_ap === "true";
     c.ap_enabled = ap ? "true" : "false";
     c.sta_enabled = staOn ? "true" : "false";
-    c.wifi_mode = ap ? "WIFI_ACCESS_POINT" : staOn ? "WIFI_STATION" : "OFF";
+    c.wifi_mode = ap ? "WIFI_ACCESS_POINT" : "WIFI_STATION"; // at least one is on
     if (ap) {
       c.ap_ssid = a.ap_ssid;
       c.ap_password = a.ap_password;
@@ -626,8 +636,8 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     c.sta_enabled = "false";
     c.wifi_mode = "OFF";
   }
-  // mDNS server is only meaningful when Wi-Fi is on (OnStepX, 10.28u).
-  c.mdns_server = a.wifi_enabled === "true" ? "ON" : "OFF";
+  // mDNS server is only meaningful when Wi-Fi is active (OnStepX, 10.28u).
+  c.mdns_server = active ? "ON" : "OFF";
 
   // Ethernet.
   c.eth_dhcp = a.eth_dhcp;

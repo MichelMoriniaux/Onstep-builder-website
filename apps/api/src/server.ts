@@ -32,13 +32,27 @@ import {
   writeBuildRecord,
 } from "./storage.js";
 
+// Job ids are nanoid(12) → [A-Za-z0-9_-]. Reject anything else (path traversal).
+const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const isSafeId = (v: unknown): v is string => typeof v === "string" && ID_RE.test(v);
+// Artifact filenames are produced by the build; restrict to a safe charset.
+const ARTIFACT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,128}$/;
+
+// git ref: must start alphanumeric, safe charset, no ".." — blocks git option
+// injection (leading "-") and range/path trickery.
+const refSchema = z
+  .string()
+  .max(LIMITS.maxRefLength)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/, "invalid ref")
+  .refine((r) => !r.includes(".."), "invalid ref");
+
 const specSchema = z.object({
   targets: z
     .array(
       z.object({
         firmware: z.enum(["onstepx", "sws"]),
-        ref: z.string().max(LIMITS.maxRefLength).optional(),
-        pluginsRef: z.string().max(LIMITS.maxRefLength).optional(),
+        ref: refSchema.optional(),
+        pluginsRef: refSchema.optional(),
       })
     )
     .min(1)
@@ -62,9 +76,10 @@ export async function buildServer() {
   const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024, trustProxy: true });
 
   await app.register(cors, { origin: config.corsOrigin });
+  // Global cap on all routes (per IP); the expensive routes below set a stricter one.
   await app.register(rateLimit, {
-    global: false,
-    max: config.rateLimit.max,
+    global: true,
+    max: config.rateLimit.globalMax,
     timeWindow: config.rateLimit.windowMs,
   });
   await app.register(multipart, {
@@ -87,8 +102,8 @@ export async function buildServer() {
         const files = await generateConfigs(answers);
         return files;
       } catch (err) {
-        req.log.error(err);
-        return reply.code(500).send({ error: "generation failed", detail: String((err as Error).message) });
+        req.log.error(err); // detail logged server-side only, not returned
+        return reply.code(500).send({ error: "generation failed" });
       }
     }
   );
@@ -196,6 +211,7 @@ export async function buildServer() {
 
   // ---- build status ---------------------------------------------------------
   app.get<{ Params: { id: string } }>("/api/builds/:id", async (req, reply) => {
+    if (!isSafeId(req.params.id)) return reply.code(400).send({ error: "bad id" });
     const rec = await readBuildRecord(req.params.id);
     if (!rec) return reply.code(404).send({ error: "not found" });
     return rec;
@@ -207,6 +223,7 @@ export async function buildServer() {
     async (req, reply) => {
       const { id } = req.params;
       const fw = req.query.firmware;
+      if (!isSafeId(id)) return reply.code(400).send({ error: "bad id" });
       if (!isFirmware(fw)) return reply.code(400).send({ error: "firmware query required" });
       const rec = await readBuildRecord(id);
       if (!rec || !rec.targets.some((t) => t.firmware === fw)) {
@@ -230,7 +247,9 @@ export async function buildServer() {
     "/api/builds/:id/artifacts/:firmware/:name",
     async (req, reply) => {
       const { id, firmware, name } = req.params;
+      if (!isSafeId(id)) return reply.code(400).send({ error: "bad id" });
       if (!isFirmware(firmware)) return reply.code(400).send({ error: "bad firmware" });
+      if (!ARTIFACT_RE.test(name)) return reply.code(400).send({ error: "bad name" });
       const p = await resolveArtifact(id, firmware, name);
       if (!p) return reply.code(404).send({ error: "not found" });
       reply.header("Content-Type", artifactContentType(name));

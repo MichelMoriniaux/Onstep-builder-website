@@ -60,6 +60,16 @@ build() {
 
   [ -f /in/Config.h ] || fail "Config.h is required but was not provided"
 
+  # Defense in depth: refs are validated by the API, but never let a ref be
+  # interpreted as a git option (leading '-') or contain unexpected characters.
+  for r in "$ref" "$pluginsRef"; do
+    case "$r" in
+      "" ) : ;;
+      -* ) fail "invalid ref '${r}'" ;;
+      *[!A-Za-z0-9._/-]* ) fail "invalid ref '${r}'" ;;
+    esac
+  done
+
   local repo sketch
   case "$firmware" in
     onstepx) repo="OnStepX";        sketch="OnStepX.ino" ;;

@@ -41,6 +41,7 @@ export async function resolveArtifact(
   fw: FirmwareTarget,
   name: string
 ): Promise<string | null> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return null; // defense in depth vs. traversal
   if (name.includes("/") || name.includes("\\") || name.includes("..")) return null;
   const p = path.join(targetOutDir(id, fw), name);
   try {
