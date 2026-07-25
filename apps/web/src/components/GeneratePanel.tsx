@@ -6,6 +6,7 @@ import {
   GeneratedFiles,
   GeneratorAnswers,
   VERSIONS,
+  wifiNeedsPlugin,
 } from "@onstep/shared";
 import { GeneratorWizard } from "./GeneratorWizard.js";
 import { generateConfigs, TargetInput } from "../api.js";
@@ -58,11 +59,18 @@ export function GeneratePanel({ onBuild }: Props) {
     try {
       const targets: TargetInput[] = [];
       if (build.onstepx) {
+        const oxFiles = new Map<string, File>([
+          ["Config.h", fileFrom(generated.onstepx["Config.h"], "Config.h")],
+        ]);
+        // Wi-Fi on → include the website plugin config so the build pulls in the plugin.
+        if (wifiNeedsPlugin(answers)) {
+          oxFiles.set("Plugins.config.h", fileFrom(generated.onstepx["Plugins.config.h"], "Plugins.config.h"));
+        }
         targets.push({
           firmware: "onstepx",
           ref: refs.onstepx.trim(),
           pluginsRef: refs.plugins.trim(),
-          files: new Map([["Config.h", fileFrom(generated.onstepx["Config.h"], "Config.h")]]),
+          files: oxFiles,
         });
       }
       if (build.sws) {
@@ -96,8 +104,8 @@ export function GeneratePanel({ onBuild }: Props) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-        This wizard generates configuration files for <strong>JTW Trident / P75 mounts</strong> on
-        the Manticore controller — not generic OnStepX mounts. It produces OnStepX{" "}
+        This wizard generates configuration files for <strong>JTW Trident GTR / P75 mounts</strong> on
+        the Manticore controller - not generic OnStepX mounts. It produces OnStepX{" "}
         <code>Config.h</code> plus SmartWebServer <code>Config.h</code> and{" "}
         <code>Extended.config.h</code>.
       </div>
@@ -119,6 +127,9 @@ export function GeneratePanel({ onBuild }: Props) {
               Generated files (preview)
             </div>
             <Preview name="OnStepX / Config.h" content={generated.onstepx["Config.h"]} />
+            {wifiNeedsPlugin(answers) && (
+              <Preview name="OnStepX / Plugins.config.h" content={generated.onstepx["Plugins.config.h"]} />
+            )}
             <Preview name="SmartWebServer / Config.h" content={generated.sws["Config.h"]} />
             <Preview name="SmartWebServer / Extended.config.h" content={generated.sws["Extended.config.h"]} />
           </div>

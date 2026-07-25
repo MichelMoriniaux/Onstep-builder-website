@@ -121,6 +121,64 @@ clean on a Linux host; on Docker Desktop for Windows/macOS prefer the host-dev f
 | `BUILD_CPUS`        | `2`                     | worker  | runner CPU cap                            |
 | `ARTIFACT_TTL_HOURS`| `24`                    | worker  | job dirs are swept after this age         |
 
+## Maintaining the JTW generator
+
+The wizard's versions, source refs, and mount-type presets all live in one file:
+**`packages/shared/src/generator.ts`**. After any edit here, rebuild the shared package and
+restart the API (the web dev server picks it up on reload):
+
+```bash
+npm run build --workspace @onstep/shared
+```
+
+### Version → source refs
+
+Commit refs per firmware version are in `VERSIONS`. These become each generated build's default
+source refs, and the generated configs are validated to compile at them.
+
+```ts
+export const VERSIONS: Record<MountVersion, VersionRefs> = {
+  "10.25p": { onstepx: "cecb810", plugins: "52a31e7", sws: "8ff13c3" },
+  "10.28u": { onstepx: "89c9ca4", plugins: "dfa9d91", sws: "193a818" },
+};
+export const VERSION_LIST: MountVersion[] = ["10.28u", "10.25p"]; // dropdown order
+export const DEFAULT_VERSION: MountVersion = "10.28u";            // pre-selected
+```
+
+To change the refs or the default for an existing version, edit those three declarations.
+
+### Adding a new firmware version
+
+1. **`packages/shared/src/generator.ts`**
+   - Add the id to the `MountVersion` union.
+   - Add its refs to `VERSIONS`, and add it to `VERSION_LIST` and `GEN_OPTIONS.version`.
+   - Optionally set it as `DEFAULT_VERSION`.
+2. **`apps/api/src/server.ts`** — add the id to the `answersSchema` `version` enum.
+3. **`apps/api/src/generator/templates/<version>/`** — create the folder with the four template
+   files: `onstepx.h`, `plugins.h`, `sws.h`, `sws-extended.h` (copy an existing version's set as a
+   starting point and adjust for that OnStepX release — e.g. remove settings the release rejects).
+   Keep the `$placeholder` names intact; every placeholder must have a key in `GENERATOR_DEFAULTS`.
+4. Rebuild shared, restart the API, and verify a generated config compiles at the new refs.
+
+### Adding / changing a mount type
+
+Mount-type presets pre-fill the detailed options (section 4 of the wizard). All in
+`packages/shared/src/generator.ts`:
+
+```ts
+export const MOUNT_TYPE_PRESETS: Record<MountTypeId, Partial<GeneratorAnswers>> = {
+  "GTR-base": { model: "GTR", encoder: "OFF",       ...HOMING_ON,  ...PEC_ON,  ...REV_OFF },
+  "P75-23b":  { model: "P75", encoder: "AS37_H39B_B", ...HOMING_OFF, ...PEC_OFF, ...REV_ON },
+  // ...
+};
+```
+
+- **Change a preset's defaults:** edit its entry, or the shared bundles just above it
+  (`HOMING_ON/OFF`, `PEC_ON/OFF`, `REV_ON/OFF`). A preset may also set any `GeneratorAnswers`
+  field directly (e.g. `axis1_reverse: "ON"`).
+- **Add a new mount type:** add the id to the `MountTypeId` union, add an entry to
+  `MOUNT_TYPE_PRESETS`, and add it to `GEN_OPTIONS.mount_type` (the dropdown label/help).
+
 ## Security notes & hardening TODOs
 
 - Builds run **non-root** (`uid 10001`), with `CapDrop: ALL`, `no-new-privileges`, and

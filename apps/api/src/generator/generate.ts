@@ -32,13 +32,17 @@ export function substitute(tpl: string, vars: Record<string, string>): string {
 export async function generateConfigs(answers: GeneratorAnswers): Promise<GeneratedFiles> {
   const config = deriveConfig(answers);
   const version = answers.version;
-  const [onstepx, swsConfig, swsExtended] = await Promise.all([
+  const [onstepx, plugins, swsConfig, swsExtended] = await Promise.all([
     loadTemplate(version, "onstepx.h"),
+    loadTemplate(version, "plugins.h"), // static: enables the website plugin
     loadTemplate(version, "sws.h"),
     loadTemplate(version, "sws-extended.h"),
   ]);
   return {
-    onstepx: { "Config.h": substitute(onstepx, config) },
+    onstepx: {
+      "Config.h": substitute(onstepx, config),
+      "Plugins.config.h": plugins,
+    },
     sws: {
       "Config.h": substitute(swsConfig, config),
       "Extended.config.h": substitute(swsExtended, config),
