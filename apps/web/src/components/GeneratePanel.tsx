@@ -3,7 +3,6 @@ import {
   DEFAULT_ANSWERS,
   FIRMWARE_LABELS,
   FirmwareTarget,
-  GeneratedFiles,
   GeneratorAnswers,
   VERSIONS,
   wifiNeedsPlugin,
@@ -19,9 +18,33 @@ interface Props {
 const fileFrom = (content: string, name: string) =>
   new File([content], name, { type: "text/plain" });
 
+/** Files produced by generation, in display/build order. Plugins only when Wi-Fi is on. */
+const genFiles = (wifi: boolean): { fw: FirmwareTarget; name: string }[] => [
+  { fw: "onstepx", name: "Config.h" },
+  { fw: "onstepx", name: "Extended.config.h" },
+  ...(wifi ? [{ fw: "onstepx" as FirmwareTarget, name: "Plugins.config.h" }] : []),
+  { fw: "sws", name: "Config.h" },
+  { fw: "sws", name: "Extended.config.h" },
+];
+
+const keyOf = (fw: FirmwareTarget, name: string) => `${fw}:${name}`;
+
+function downloadText(filename: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function GeneratePanel({ onBuild }: Props) {
   const [answers, setAnswers] = useState<GeneratorAnswers>({ ...DEFAULT_ANSWERS });
-  const [generated, setGenerated] = useState<GeneratedFiles | null>(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  // Editable content, keyed by "<firmware>:<filename>".
+  const [content, setContent] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<Record<FirmwareTarget, boolean>>({ onstepx: true, sws: true });
   const [refs, setRefs] = useState<{ onstepx: string; sws: string; plugins: string }>({
     ...VERSIONS[DEFAULT_ANSWERS.version],
@@ -37,14 +60,23 @@ export function GeneratePanel({ onBuild }: Props) {
 
   const changeAnswers = (a: GeneratorAnswers) => {
     setAnswers(a);
-    setGenerated(null); // any change invalidates the preview
+    setHasGenerated(false); // any wizard change invalidates the generated files
+    setContent({});
   };
 
   async function generate() {
     setError(null);
     setBusy(true);
     try {
-      setGenerated(await generateConfigs(answers));
+      const gen = await generateConfigs(answers);
+      setContent({
+        "onstepx:Config.h": gen.onstepx["Config.h"],
+        "onstepx:Extended.config.h": gen.onstepx["Extended.config.h"],
+        "onstepx:Plugins.config.h": gen.onstepx["Plugins.config.h"],
+        "sws:Config.h": gen.sws["Config.h"],
+        "sws:Extended.config.h": gen.sws["Extended.config.h"],
+      });
+      setHasGenerated(true);
     } catch (e) {
       setError(String((e as Error).message));
     } finally {
@@ -53,26 +85,21 @@ export function GeneratePanel({ onBuild }: Props) {
   }
 
   async function submit() {
-    if (!generated) return;
+    if (!hasGenerated) return;
     setError(null);
     setBusy(true);
     try {
       const targets: TargetInput[] = [];
       if (build.onstepx) {
         const oxFiles = new Map<string, File>([
-          ["Config.h", fileFrom(generated.onstepx["Config.h"], "Config.h")],
-          ["Extended.config.h", fileFrom(generated.onstepx["Extended.config.h"], "Extended.config.h")],
+          ["Config.h", fileFrom(content["onstepx:Config.h"], "Config.h")],
+          ["Extended.config.h", fileFrom(content["onstepx:Extended.config.h"], "Extended.config.h")],
         ]);
-        // Wi-Fi on → include the website plugin config so the build pulls in the plugin.
+        // Wi-Fi on → include the (possibly edited) website plugin config.
         if (wifiNeedsPlugin(answers)) {
-          oxFiles.set("Plugins.config.h", fileFrom(generated.onstepx["Plugins.config.h"], "Plugins.config.h"));
+          oxFiles.set("Plugins.config.h", fileFrom(content["onstepx:Plugins.config.h"], "Plugins.config.h"));
         }
-        targets.push({
-          firmware: "onstepx",
-          ref: refs.onstepx.trim(),
-          pluginsRef: refs.plugins.trim(),
-          files: oxFiles,
-        });
+        targets.push({ firmware: "onstepx", ref: refs.onstepx.trim(), pluginsRef: refs.plugins.trim(), files: oxFiles });
       }
       if (build.sws) {
         targets.push({
@@ -80,8 +107,8 @@ export function GeneratePanel({ onBuild }: Props) {
           ref: refs.sws.trim(),
           pluginsRef: "",
           files: new Map([
-            ["Config.h", fileFrom(generated.sws["Config.h"], "Config.h")],
-            ["Extended.config.h", fileFrom(generated.sws["Extended.config.h"], "Extended.config.h")],
+            ["Config.h", fileFrom(content["sws:Config.h"], "Config.h")],
+            ["Extended.config.h", fileFrom(content["sws:Extended.config.h"], "Extended.config.h")],
           ]),
         });
       }
@@ -118,22 +145,27 @@ export function GeneratePanel({ onBuild }: Props) {
         disabled={busy}
         className="w-full rounded-lg border border-brand-600 text-brand-700 dark:text-brand-500 py-2.5 font-semibold hover:bg-brand-50 dark:hover:bg-slate-800 disabled:opacity-40 transition"
       >
-        {busy && !generated ? "Generating…" : generated ? "Regenerate configuration" : "Generate configuration"}
+        {busy && !hasGenerated ? "Generating…" : hasGenerated ? "Regenerate configuration" : "Generate configuration"}
       </button>
 
-      {generated && (
+      {hasGenerated && (
         <>
           <div className="space-y-2">
             <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Generated files (preview)
+              Generated files — expand to view, edit, or download. Edits are used for the build.
             </div>
-            <Preview name="OnStepX / Config.h" content={generated.onstepx["Config.h"]} />
-            <Preview name="OnStepX / Extended.config.h" content={generated.onstepx["Extended.config.h"]} />
-            {wifiNeedsPlugin(answers) && (
-              <Preview name="OnStepX / Plugins.config.h" content={generated.onstepx["Plugins.config.h"]} />
-            )}
-            <Preview name="SmartWebServer / Config.h" content={generated.sws["Config.h"]} />
-            <Preview name="SmartWebServer / Extended.config.h" content={generated.sws["Extended.config.h"]} />
+            {genFiles(wifiNeedsPlugin(answers)).map((f) => {
+              const k = keyOf(f.fw, f.name);
+              return (
+                <FileEditor
+                  key={k}
+                  label={`${FIRMWARE_LABELS[f.fw]} / ${f.name}`}
+                  downloadName={`${f.fw}-${f.name}`}
+                  value={content[k] ?? ""}
+                  onChange={(v) => setContent((c) => ({ ...c, [k]: v }))}
+                />
+              );
+            })}
           </div>
 
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-4">
@@ -162,8 +194,7 @@ export function GeneratePanel({ onBuild }: Props) {
               </div>
               <p className="mt-1 text-xs text-slate-500">
                 Refs are pinned to the source commits for version{" "}
-                <span className="font-mono">{answers.version}</span>. The generated config is
-                validated to compile at these.
+                <span className="font-mono">{answers.version}</span>.
               </p>
             </details>
           </div>
@@ -174,28 +205,65 @@ export function GeneratePanel({ onBuild }: Props) {
 
       <button
         onClick={submit}
-        disabled={!generated || busy}
+        disabled={!hasGenerated || busy}
         className="w-full rounded-lg bg-brand-600 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
-        {busy && generated ? "Submitting…" : "Build firmware"}
+        {busy && hasGenerated ? "Submitting…" : "Build firmware"}
       </button>
-      {!generated && (
+      {!hasGenerated && (
         <p className="text-center text-xs text-slate-500">Generate the configuration first, then build.</p>
       )}
     </div>
   );
 }
 
-function Preview({ name, content }: { name: string; content: string }) {
+function FileEditor({
+  label,
+  downloadName,
+  value,
+  onChange,
+}: {
+  label: string;
+  downloadName: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
   return (
     <details className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-      <summary className="cursor-pointer px-3 py-2 bg-slate-50 dark:bg-slate-800/60 text-sm font-mono flex justify-between">
-        <span>{name}</span>
-        <span className="text-slate-400">{(content.length / 1024).toFixed(1)} KB</span>
+      <summary className="cursor-pointer px-3 py-2 bg-slate-50 dark:bg-slate-800/60 text-sm font-mono flex justify-between items-center">
+        <span>{label}</span>
+        <span className="text-slate-400">{(value.length / 1024).toFixed(1)} KB</span>
       </summary>
-      <pre className="max-h-72 overflow-auto bg-slate-900 text-slate-100 text-xs font-mono p-4">
-        <code dangerouslySetInnerHTML={{ __html: highlightC(content) }} />
-      </pre>
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40">
+        <button
+          type="button"
+          onClick={() => setEditing((e) => !e)}
+          className="rounded-md bg-slate-200 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium hover:bg-slate-300 dark:hover:bg-slate-600"
+        >
+          {editing ? "View" : "Edit"}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadText(downloadName, value)}
+          className="rounded-md bg-slate-200 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium hover:bg-slate-300 dark:hover:bg-slate-600"
+        >
+          Download
+        </button>
+        {editing && <span className="text-xs text-amber-600 dark:text-amber-400">editing</span>}
+      </div>
+      {editing ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          className="w-full h-80 bg-slate-900 text-slate-100 text-xs font-mono p-4 outline-none resize-y"
+        />
+      ) : (
+        <pre className="max-h-80 overflow-auto bg-slate-900 text-slate-100 text-xs font-mono p-4">
+          <code dangerouslySetInnerHTML={{ __html: highlightC(value) }} />
+        </pre>
+      )}
     </details>
   );
 }

@@ -15,6 +15,7 @@
 // For Wifi successful startup an AP will appear with an SSID of "ONSTEP", after connecting: the web-site is at "192.168.0.1" and
 // the cmd channel is at "192.168.0.1:9999". If locked out selecting "Erase Flash: All Flash Contents" from the Arduino Tools menu 
 // before uploading/flashing again can help restore access to the ESP8266.
+#define HOST_NAME            "OnStep-SWS" // p-SWS", This devices name up to 16 chars (collapses to mDNS name "onstepsws".)   Adjust
 
 //      Parameter Name              Value   Default  Notes                                                                      Hint
 // OPERATIONAL MODE ----------------------------------------------------------------------------------------------------------------
@@ -39,19 +40,20 @@
 #define DISPLAY_INTERNAL_TEMPERATURE   $temp //    OFF, ON internal MCU temp. in locale default units.                           Option
 #define DISPLAY_WIFI_SIGNAL_STRENGTH   ON //     ON, Wireless signal strength reported via web interface. OFF otherwise.      Option
 #define DISPLAY_RESET_CONTROLS         ON //    OFF, ON allows reset if supported, FWU for STM32 firmware upload pin HIGH.    Option
+#define DISPLAY_COORDINATE_ORIGIN      $origin //    OFF, ON to display the coordinate origin control tile on the mount page.      Option
 
 #define DISPLAY_SERVO_MONITOR          $monitor //    OFF, ON to display the servo monitor for OnStepX servos (any axis.)           Option
-#define DISPLAY_SERVO_ORIGIN_CONTROLS  $origin //    OFF, ON to display control to set the absolute encoder origin for servos.     Option
-#define DISPLAY_SERVO_CALIBRATION      $calibration //    OFF, ON to display the servo calibration controls for OnStepX (any axis.)     Option
+#define DISPLAY_STALLGUARD_MONITOR     $monitor //    OFF, ON to display the StallGuard monitor for OnStepX (any axis.)             Option
 #define HOME_SWITCH_DIRECTION_CONTROL  $home_switch // website, display home switch reversal
-#define HOME_OFFSET_RANGE_AXIS1    $home_range //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
-#define HOME_OFFSET_RANGE_AXIS2    $home_range //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
+#define HOME_OFFSET_RANGE_AXIS1    $home_range_axis1 //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
+#define HOME_OFFSET_RANGE_AXIS2    $home_range_axis2 //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
+#define DISPLAY_HIGH_PRECISION_COORDS  $display_high_precision //
 
 // ENCODER SUPPORT -----------------------------------------------------------------------------------------------------------------
 // Some of these settings are stored in NV (EEPROM) as the default values when first uploaded.  Later changes below may be
 // ignored unless NV is wiped or you configure to revert to the defaults again at runtime.
 #define ENC_AUTO_SYNC_DEFAULT          ON //     ON, Automatically sync Encoders to OnStep.                                   Option
-#define ENC_AUTO_SYNC_MEMORY          OFF //    OFF, ON Remember automatic sync setting across power cycles.                  Option
+#define ENC_AUTO_SYNC_MEMORY           ON //    OFF, ON Remember automatic sync setting across power cycles.                  Option
 #define ENC_SYNC_DURING_GOTO           ON //    OFF, ON high resolution encoders correct pointing even for gotos.             Option
 
 #define AXIS1_ENCODER                 OFF //    OFF, AB, AB_ESP32, CW_CCW, PULSE_DIR, AS37_H39B_B. RA/Azm (A/MA) & (B/SLO.)   Option

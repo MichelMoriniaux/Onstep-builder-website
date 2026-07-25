@@ -54,7 +54,7 @@ export function GeneratorWizard({ answers, onChange }: Props) {
           label="Enable Wi-Fi"
           help="Adds the website plugin to the OnStepX build."
           checked={wifiOn}
-          onChange={(c) => set({ wifi_enabled: c ? "true" : "false" })}
+          onChange={(c) => set({ wifi_enabled: c ? "true" : "false", display_wifi_signal: c ? "ON" : "OFF" })}
         />
         {wifiOn && (
           <div className="mt-3 pl-6 border-l-2 border-slate-200 dark:border-slate-700 space-y-4">
@@ -104,7 +104,7 @@ export function GeneratorWizard({ answers, onChange }: Props) {
 
         <Subsection title="Drivetrain" defaultOpen>
         <Grid>
-          <Select label="Encoders" value={answers.encoder} options={forModel(GEN_OPTIONS.encoder, answers.model)} onChange={(v) => set({ encoder: v })} />
+          <Select label="Encoders" value={answers.encoder} options={forModel(GEN_OPTIONS.encoder, answers.model)} onChange={(v) => set({ encoder: v, display_monitor: v !== "OFF" ? "ON" : "OFF", display_origin: v !== "OFF" ? "ON" : "OFF", display_calibration: v !== "OFF" ? "ON" : "OFF" })} />
           <Select label="Tracking compensation" value={answers.compensation} options={GEN_OPTIONS.compensation} onChange={(v) => set({ compensation: v })} />
           <Select label="Axis 1 (RA/Az) motor reverse" value={answers.axis1_reverse} options={GEN_OPTIONS.onOff} onChange={(v) => set({ axis1_reverse: v })} />
           <Select label="Axis 2 (Dec/Alt) motor reverse" value={answers.axis2_reverse} options={GEN_OPTIONS.onOff} onChange={(v) => set({ axis2_reverse: v })} />
@@ -118,16 +118,37 @@ export function GeneratorWizard({ answers, onChange }: Props) {
         </Subsection>
 
         <Subsection title="Homing">
-        <Grid>
-          <Select label="Home sensor" value={answers.home_sense} options={GEN_OPTIONS.home_sense} onChange={(v) => set({ home_sense: v })} />
-          <Select label="Home switch reversal (SWS)" value={answers.home_switch} options={GEN_OPTIONS.onOff} onChange={(v) => set({ home_switch: v })} />
-          <Text label="Home offset range (arcsec)" value={answers.home_range} onChange={(v) => set({ home_range: v })} mono />
-        </Grid>
+        <div className="space-y-4">
+          <Grid>
+            <Select label="Home sensor" value={answers.home_sense} options={GEN_OPTIONS.home_sense} onChange={(v) => set({ home_sense: v })} />
+          </Grid>
+          {answers.home_sense !== "OFF" && (
+            <Grid>
+              <Text label="Home offset range Axis 1 (arcsec)" value={answers.home_range_axis1} onChange={(v) => set({ home_range_axis1: v })} mono />
+              <Text label="Home offset range Axis 2 (arcsec)" value={answers.home_range_axis2} onChange={(v) => set({ home_range_axis2: v })} mono />
+            </Grid>
+          )}
+        </div>
         </Subsection>
 
         <Subsection title="PEC">
         <Grid>
-          <Select label="PEC sensor" value={answers.pec_sense} options={GEN_OPTIONS.pec_sense} onChange={(v) => set({ pec_sense: v })} />
+          <Select
+            label="PEC sensor"
+            value={answers.pec_sense}
+            options={GEN_OPTIONS.pec_sense}
+            onChange={(v) =>
+              set({
+                pec_sense: v,
+                // Enabling a sensor defaults steps-per-worm to 102400; disabling clears it.
+                ...(v === "OFF"
+                  ? { pec_spwr: "0" }
+                  : answers.pec_spwr === "0" || answers.pec_spwr === ""
+                  ? { pec_spwr: "102400" }
+                  : {}),
+              })
+            }
+          />
           <Text label="Steps per worm rotation (0 = off)" value={answers.pec_spwr} onChange={(v) => set({ pec_spwr: v })} mono />
         </Grid>
         </Subsection>
@@ -142,8 +163,11 @@ export function GeneratorWizard({ answers, onChange }: Props) {
               <Text label="Ethernet gateway" value={answers.eth_gw} onChange={(v) => set({ eth_gw: v })} mono />
             </>
           )}
-          <Select label="Weather probe (TPH)" value={answers.weather_mode} options={GEN_OPTIONS.weather_mode} onChange={(v) => set({ weather_mode: v })} />
+          <Select label="Weather probe (TPH)" value={answers.weather_mode} options={GEN_OPTIONS.weather_mode} onChange={(v) => set({ weather_mode: v, display_weather: v !== "OFF" ? "ON" : "OFF" })} />
           <Select label="Clock source" value={answers.tls} options={tlsOpts} onChange={(v) => set({ tls: v })} />
+          {answers.tls === "NTP" && answers.version === "10.28u" && (
+            <Text label="NTP server IP" value={answers.time_ip_addr} onChange={(v) => set({ time_ip_addr: v })} mono />
+          )}
           {answers.tls === "GPS" && (
             <>
               <Select label="Enable PPS" value={answers.pps} options={GEN_OPTIONS.pps} onChange={(v) => set({ pps: v })} />
@@ -156,14 +180,83 @@ export function GeneratorWizard({ answers, onChange }: Props) {
         </Grid>
         </Subsection>
 
+        <Subsection title="Display overrides">
+          <p className="text-xs text-slate-500 mb-3">
+            Auto-decided from your options (weather → weather display, Wi-Fi → signal strength, encoders →
+            servo displays). Override any here.
+          </p>
+          <div className="space-y-2">
+            <CheckRow label="Weather" v={answers.display_weather} on={(x) => set({ display_weather: x })} />
+            <CheckRow label="Internal temperature" v={answers.display_temp} on={(x) => set({ display_temp: x })} />
+            <CheckRow label="Wi-Fi signal strength (OnStepX)" v={answers.display_wifi_signal} on={(x) => set({ display_wifi_signal: x })} />
+            <CheckRow label="Servo monitor" v={answers.display_monitor} on={(x) => set({ display_monitor: x })} />
+            <CheckRow label="Servo origin controls" v={answers.display_origin} on={(x) => set({ display_origin: x })} />
+            <CheckRow label="Servo calibration" v={answers.display_calibration} on={(x) => set({ display_calibration: x })} />
+            {answers.version === "10.28u" && (
+              <CheckRow label="High-precision coordinates" v={answers.display_high_precision} on={(x) => set({ display_high_precision: x })} />
+            )}
+            <CheckRow label="Home switch direction control" v={answers.home_switch} on={(x) => set({ home_switch: x })} />
+          </div>
+        </Subsection>
+
         {hasEncoder && (
-          <Subsection title="Servo PID (advanced)">
+          <Subsection title="Servo Settings (advanced)">
             <div className="space-y-4">
-              <PidAxis title="Axis 1 (RA/Az)" a={answers} keys={["axis1_pid_p", "axis1_pid_i", "axis1_pid_d", "axis1_pid_p_goto", "axis1_pid_i_goto", "axis1_pid_d_goto"]} set={set} />
-              <PidAxis title="Axis 2 (Dec/Alt)" a={answers} keys={["axis2_pid_p", "axis2_pid_i", "axis2_pid_d", "axis2_pid_p_goto", "axis2_pid_i_goto", "axis2_pid_d_goto"]} set={set} />
+              <ServoAxis title="Axis 1 (RA/Az)" axis="axis1" a={answers} set={set} />
+              <ServoAxis title="Axis 2 (Dec/Alt)" axis="axis2" a={answers} set={set} />
             </div>
           </Subsection>
         )}
+
+        <Subsection title="Guiding & ST4">
+        <Grid>
+          <Select label="ST4 interface" value={answers.st4_interface} options={GEN_OPTIONS.onOff} onChange={(v) => set({ st4_interface: v })} />
+          <Select label="ST4 hand control" value={answers.st4_hand_control} options={GEN_OPTIONS.onOff} onChange={(v) => set({ st4_hand_control: v })} />
+          <Select label="ST4 hand control focuser" value={answers.st4_hand_control_focuser} options={GEN_OPTIONS.onOff} onChange={(v) => set({ st4_hand_control_focuser: v })} />
+          <Select label="Remember slew rate" value={answers.slew_rate_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ slew_rate_memory: v })} />
+        </Grid>
+        </Subsection>
+
+        <Subsection title="Parking & limits">
+        <Grid>
+          <Select label="Limit sense" value={answers.limit_sense} options={GEN_OPTIONS.offHighLow} onChange={(v) => set({ limit_sense: v })} />
+          <Select label="Park sense" value={answers.park_sense} options={GEN_OPTIONS.offHighLow} onChange={(v) => set({ park_sense: v })} />
+          <Select label="Park signal" value={answers.park_signal} options={GEN_OPTIONS.offHighLow} onChange={(v) => set({ park_signal: v })} />
+          <Select label="Park status" value={answers.park_status} options={GEN_OPTIONS.offHighLow} onChange={(v) => set({ park_status: v })} />
+          <Select label="Park strict" value={answers.park_strict} options={GEN_OPTIONS.onOff} onChange={(v) => set({ park_strict: v })} />
+        </Grid>
+        </Subsection>
+
+        <Subsection title="Meridian flip & pier side">
+        <Grid>
+          <Select label="MFLIP skip home" value={answers.mflip_skip_home} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mflip_skip_home: v })} />
+          <Select label="MFLIP automatic default" value={answers.mflip_automatic_default} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mflip_automatic_default: v })} />
+          <Select label="MFLIP automatic memory" value={answers.mflip_automatic_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mflip_automatic_memory: v })} />
+          <Select label="MFLIP pause at home default" value={answers.mflip_pause_home_default} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mflip_pause_home_default: v })} />
+          <Select label="MFLIP pause at home memory" value={answers.mflip_pause_home_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mflip_pause_home_memory: v })} />
+          <Select label="Sync can change pier side" value={answers.pier_side_sync_change_sides} options={GEN_OPTIONS.onOff} onChange={(v) => set({ pier_side_sync_change_sides: v })} />
+          <Select label="Preferred pier side" value={answers.pier_side_preferred_default} options={GEN_OPTIONS.pier_side_preferred} onChange={(v) => set({ pier_side_preferred_default: v })} />
+          <Select label="Remember preferred pier side" value={answers.pier_side_preferred_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ pier_side_preferred_memory: v })} />
+        </Grid>
+        </Subsection>
+
+        <Subsection title="Alignment">
+        <Grid>
+          <Select label="Auto-home before align" value={answers.align_auto_home} options={GEN_OPTIONS.onOff} onChange={(v) => set({ align_auto_home: v })} />
+          <Select label="Remember pointing model" value={answers.align_model_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ align_model_memory: v })} />
+          <Text label="Max align stars (AUTO or n)" value={answers.align_max_stars} onChange={(v) => set({ align_max_stars: v })} mono />
+        </Grid>
+        </Subsection>
+
+        <Subsection title="Mount & status">
+        <Grid>
+          <Select label="Remember mount coordinates" value={answers.mount_coords_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mount_coords_memory: v })} />
+          <Select label="Enable drivers in standby" value={answers.mount_enable_in_standby} options={GEN_OPTIONS.onOff} onChange={(v) => set({ mount_enable_in_standby: v })} />
+          <Select label="Status buzzer default" value={answers.status_buzzer_default} options={GEN_OPTIONS.onOff} onChange={(v) => set({ status_buzzer_default: v })} />
+          <Select label="Remember buzzer setting" value={answers.status_buzzer_memory} options={GEN_OPTIONS.onOff} onChange={(v) => set({ status_buzzer_memory: v })} />
+          <Select label="Goto feature" value={answers.goto_feature} options={GEN_OPTIONS.onOff} onChange={(v) => set({ goto_feature: v })} />
+        </Grid>
+        </Subsection>
       </Collapsible>
 
       {/* 5 — Debug / Maintenance */}
@@ -205,29 +298,47 @@ export function GeneratorWizard({ answers, onChange }: Props) {
   );
 }
 
-const PID_LABELS = ["P (track)", "I (track)", "D (track)", "P (goto)", "I (goto)", "D (goto)"];
-
-function PidAxis({
+function ServoAxis({
   title,
+  axis,
   a,
-  keys,
   set,
 }: {
   title: string;
+  axis: "axis1" | "axis2";
   a: GeneratorAnswers;
-  keys: (keyof GeneratorAnswers)[];
   set: (patch: Partial<GeneratorAnswers>) => void;
 }) {
+  const fltrKey = `${axis}_servo_fltr` as keyof GeneratorAnswers;
+  const fltr = a[fltrKey] as string;
+  const field = (label: string, suffix: string) => {
+    const key = `${axis}_${suffix}` as keyof GeneratorAnswers;
+    return <Text label={label} value={a[key] as string} onChange={(v) => set({ [key]: v } as Partial<GeneratorAnswers>)} mono />;
+  };
   return (
     <div>
       <div className="text-xs font-medium text-slate-500 mb-2">{title}</div>
-      <div className="grid grid-cols-3 gap-3">
-        {keys.map((k, i) => (
-          <Text key={k} label={PID_LABELS[i]} value={a[k] as string} onChange={(v) => set({ [k]: v } as Partial<GeneratorAnswers>)} mono />
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Select label="Servo filter" value={fltr} options={GEN_OPTIONS.servo_fltr} onChange={(v) => set({ [fltrKey]: v } as Partial<GeneratorAnswers>)} />
+        {fltr === "KALMAN" && field("Filter meas U", "servo_fltr_meas_u")}
+        {fltr === "KALMAN" && field("Filter variance", "servo_fltr_variance")}
+        {fltr === "ROLLING" && field("Filter window size", "servo_fltr_wsize")}
+        {field("Acceleration (%/s)", "servo_acceleration")}
+        {field("PID sensitivity (%)", "pid_sensitivity")}
+        {field("P (track)", "pid_p")}
+        {field("I (track)", "pid_i")}
+        {field("D (track)", "pid_d")}
+        {field("P (goto)", "pid_p_goto")}
+        {field("I (goto)", "pid_i_goto")}
+        {field("D (goto)", "pid_d_goto")}
       </div>
     </div>
   );
+}
+
+/** A checkbox bound to an ON/OFF string value. */
+function CheckRow({ label, v, on }: { label: string; v: string; on: (v: string) => void }) {
+  return <Checkbox label={label} checked={v === "ON"} onChange={(c) => on(c ? "ON" : "OFF")} />;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

@@ -1,7 +1,8 @@
 // JTW mount configuration generator — derived from the wizard in
 // MichelMoriniaux/JTW-Trident-Mounts/generator/generator.py, extended with
-// mount-type presets, per-axis reversal/PID, PEC, homing, an AP+station Wi-Fi
-// model, and firmware-version targeting.
+// mount-type presets, per-axis reversal/PID/servo settings, PEC, homing, display
+// overrides, an AP+station Wi-Fi model, advanced mount options, and
+// firmware-version targeting.
 //
 // Targets JTW Trident / P75 mounts on the Manticore controller specifically.
 
@@ -47,19 +48,32 @@ export interface GeneratorAnswers {
   axis1_encoder_reverse: string; // OFF | ON
   axis2_encoder_reverse: string;
 
-  // Servo PID (6 per axis)
+  // Servo settings (per axis): PID + filter + acceleration + sensitivity
   axis1_pid_p: string;
   axis1_pid_i: string;
   axis1_pid_d: string;
   axis1_pid_p_goto: string;
   axis1_pid_i_goto: string;
   axis1_pid_d_goto: string;
+  axis1_pid_sensitivity: string;
+  axis1_servo_acceleration: string;
+  axis1_servo_fltr_meas_u: string;
+  axis1_servo_fltr_variance: string;
   axis2_pid_p: string;
   axis2_pid_i: string;
   axis2_pid_d: string;
   axis2_pid_p_goto: string;
   axis2_pid_i_goto: string;
   axis2_pid_d_goto: string;
+  axis2_pid_sensitivity: string;
+  axis2_servo_acceleration: string;
+  axis2_servo_fltr_meas_u: string;
+  axis2_servo_fltr_variance: string;
+  // Servo filter type (per axis) + its rolling window size
+  axis1_servo_fltr: string; // OFF | KALMAN | ROLLING | WINDOWING | LEARNING
+  axis1_servo_fltr_wsize: string; // ROLLING window size
+  axis2_servo_fltr: string;
+  axis2_servo_fltr_wsize: string;
 
   // PEC
   pec_spwr: string; // steps per worm rotation, "0" disables
@@ -67,8 +81,18 @@ export interface GeneratorAnswers {
 
   // Homing
   home_sense: string; // OFF | HIGH | LOW
-  home_switch: string; // OFF | ON
-  home_range: string; // arcsec
+  home_range_axis1: string; // arcsec
+  home_range_axis2: string; // arcsec
+
+  // Display overrides (ON | OFF) — auto-derived defaults, user-overridable
+  display_weather: string; // auto: weather probe present
+  display_temp: string;
+  display_wifi_signal: string; // auto: Wi-Fi on (OnStepX only)
+  display_monitor: string; // auto: servo
+  display_origin: string; // auto: servo
+  display_calibration: string; // auto: servo
+  display_high_precision: string; // ON | OFF (10.28u only)
+  home_switch: string; // HOME_SWITCH_DIRECTION_CONTROL (ON | OFF)
 
   // Wi-Fi (checkbox-gated; AP and station are independent and may both be on)
   wifi_enabled: string; // "true" | "false"
@@ -92,9 +116,37 @@ export interface GeneratorAnswers {
   eth_gw: string;
   weather_mode: string; // OFF | BME280_0x76
   tls: string; // DS3231 | NTP | GPS
+  time_ip_addr: string; // NTP server IP (10.28u; only used when tls=NTP)
   pps: string; // OFF | ON
   pps_detect: string; // OFF | HIGH | LOW | BOTH
   nv_driver: string; // NV_MB85RC64 | NV_DEFAULT
+
+  // Advanced mount options (pass straight through to OnStepX Config.h)
+  mount_coords_memory: string; // OFF | ON
+  mount_enable_in_standby: string; // OFF | ON
+  status_buzzer_default: string; // OFF | ON
+  status_buzzer_memory: string; // OFF | ON
+  st4_interface: string; // OFF | ON
+  st4_hand_control: string; // OFF | ON
+  st4_hand_control_focuser: string; // OFF | ON
+  slew_rate_memory: string; // OFF | ON
+  goto_feature: string; // OFF | ON
+  limit_sense: string; // OFF | HIGH | LOW
+  park_sense: string; // OFF | HIGH | LOW
+  park_signal: string; // OFF | HIGH | LOW
+  park_status: string; // OFF | HIGH | LOW
+  park_strict: string; // OFF | ON
+  mflip_skip_home: string; // OFF | ON
+  mflip_automatic_default: string; // OFF | ON
+  mflip_automatic_memory: string; // OFF | ON
+  mflip_pause_home_default: string; // OFF | ON
+  mflip_pause_home_memory: string; // OFF | ON
+  pier_side_sync_change_sides: string; // OFF | ON
+  pier_side_preferred_default: string; // BEST | EAST | WEST
+  pier_side_preferred_memory: string; // OFF | ON
+  align_auto_home: string; // OFF | ON
+  align_model_memory: string; // OFF | ON
+  align_max_stars: string; // AUTO | n
 
   // Debug / maintenance — operate on the Extended.config.h DEBUG / NV_WIPE defines.
   onstepx_debug: string; // "true" | "false"
@@ -102,6 +154,22 @@ export interface GeneratorAnswers {
   sws_debug: string; // "true" | "false"
   sws_nvwipe: string; // "true" | "false"
 }
+
+/** Advanced answer keys that map 1:1 onto template placeholders. */
+export const ADVANCED_KEYS: (keyof GeneratorAnswers)[] = [
+  "axis1_pid_sensitivity", "axis1_servo_acceleration", "axis1_servo_fltr_meas_u", "axis1_servo_fltr_variance",
+  "axis2_pid_sensitivity", "axis2_servo_acceleration", "axis2_servo_fltr_meas_u", "axis2_servo_fltr_variance",
+  "axis1_servo_fltr", "axis1_servo_fltr_wsize", "axis2_servo_fltr", "axis2_servo_fltr_wsize",
+  "home_range_axis1", "home_range_axis2",
+  "mount_coords_memory", "mount_enable_in_standby",
+  "status_buzzer_default", "status_buzzer_memory",
+  "st4_interface", "st4_hand_control", "st4_hand_control_focuser",
+  "slew_rate_memory", "goto_feature",
+  "limit_sense", "park_sense", "park_signal", "park_status", "park_strict",
+  "mflip_skip_home", "mflip_automatic_default", "mflip_automatic_memory", "mflip_pause_home_default", "mflip_pause_home_memory",
+  "pier_side_sync_change_sides", "pier_side_preferred_default", "pier_side_preferred_memory",
+  "align_auto_home", "align_model_memory", "align_max_stars",
+];
 
 /** Full substitution map (every template placeholder). */
 export type GeneratorConfig = Record<string, string>;
@@ -176,6 +244,16 @@ export const GEN_OPTIONS = {
     { value: "OFF", label: "Off" },
     { value: "ON", label: "On" },
   ] as GenOption[],
+  offHighLow: [
+    { value: "OFF", label: "Off" },
+    { value: "HIGH", label: "HIGH" },
+    { value: "LOW", label: "LOW" },
+  ] as GenOption[],
+  pier_side_preferred: [
+    { value: "BEST", label: "Best (stay on current side)" },
+    { value: "EAST", label: "East" },
+    { value: "WEST", label: "West" },
+  ] as GenOption[],
   pec_sense: [
     { value: "OFF", label: "No PEC sensor" },
     { value: "HIGH", label: "Rising edge (HIGH)" },
@@ -186,6 +264,13 @@ export const GEN_OPTIONS = {
     { value: "OFF", label: "No home sensor" },
     { value: "HIGH", label: "HIGH" },
     { value: "LOW", label: "LOW" },
+  ] as GenOption[],
+  servo_fltr: [
+    { value: "OFF", label: "Off (no filter)" },
+    { value: "KALMAN", label: "Kalman", help: "Uses measurement uncertainty + variance." },
+    { value: "ROLLING", label: "Rolling average", help: "Uses a window size." },
+    { value: "WINDOWING", label: "Windowing" },
+    { value: "LEARNING", label: "Learning" },
   ] as GenOption[],
   nv_driver: [
     { value: "NV_MB85RC64", label: "MB85RC64 FRAM (default)", help: "Standard JTW non-volatile storage chip." },
@@ -199,21 +284,23 @@ export const GEN_OPTIONS = {
 
 // ---- mount-type presets -----------------------------------------------------
 
-const HOMING_ON = { home_sense: "HIGH", home_switch: "ON", home_range: "7200" };
-const HOMING_OFF = { home_sense: "OFF", home_switch: "OFF", home_range: "7200" };
+const HOMING_ON = { home_sense: "HIGH", home_switch: "ON", home_range_axis1: "648000", home_range_axis2: "648000" };
+const HOMING_OFF = { home_sense: "OFF", home_switch: "OFF", home_range_axis1: "648000", home_range_axis2: "648000" };
 const PEC_ON = { pec_spwr: "102400", pec_sense: "LOW|THLD(360)|HYST(120)" };
 const PEC_OFF = { pec_spwr: "0", pec_sense: "OFF" };
 const REV_OFF = { axis1_encoder_reverse: "OFF", axis2_encoder_reverse: "OFF" };
 const REV_ON = { axis1_encoder_reverse: "ON", axis2_encoder_reverse: "ON" };
+const DISP_SERVO_ON = { display_monitor: "ON", display_origin: "ON", display_calibration: "ON" };
+const DISP_SERVO_OFF = { display_monitor: "OFF", display_origin: "OFF", display_calibration: "OFF" };
 
 /** Values a mount type implies for the detailed options (section 4). */
 export const MOUNT_TYPE_PRESETS: Record<MountTypeId, Partial<GeneratorAnswers>> = {
-  "GTR-base": { model: "GTR", encoder: "OFF", ...HOMING_ON, ...PEC_ON, ...REV_OFF },
-  "GTR-24b": { model: "GTR", encoder: "JTW_24BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON },
-  "GTR-26b": { model: "GTR", encoder: "JTW_26BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON },
-  "P75-base": { model: "P75", encoder: "OFF", ...HOMING_OFF, ...PEC_OFF, ...REV_OFF },
-  "P75-23b": { model: "P75", encoder: "AS37_H39B_B", ...HOMING_OFF, ...PEC_OFF, ...REV_OFF },
-  "P75-24b": { model: "P75", encoder: "JTW_24BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON },
+  "GTR-base": { model: "GTR", encoder: "OFF", ...HOMING_ON, ...PEC_ON, ...REV_OFF, ...DISP_SERVO_OFF },
+  "GTR-24b": { model: "GTR", encoder: "JTW_24BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON, ...DISP_SERVO_ON },
+  "GTR-26b": { model: "GTR", encoder: "JTW_26BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON, ...DISP_SERVO_ON },
+  "P75-base": { model: "P75", encoder: "OFF", ...HOMING_OFF, ...PEC_OFF, ...REV_OFF, ...DISP_SERVO_OFF },
+  "P75-23b": { model: "P75", encoder: "AS37_H39B_B", ...HOMING_OFF, ...PEC_OFF, ...REV_OFF, ...DISP_SERVO_ON },
+  "P75-24b": { model: "P75", encoder: "JTW_24BIT", ...HOMING_OFF, ...PEC_OFF, ...REV_ON, ...DISP_SERVO_ON },
 };
 
 /** Apply a mount-type preset onto answers (used by the wizard, section 1). */
@@ -224,6 +311,46 @@ export function applyMountType(a: GeneratorAnswers, id: MountTypeId): GeneratorA
 // ---- defaults ---------------------------------------------------------------
 
 const PID_DEFAULTS = { p: "3.0", i: "1.0", d: "0.0", p_goto: "1.0", i_goto: "0.0", d_goto: "0.0" } as const;
+const SERVO_DEFAULTS = { acceleration: "100", fltr_meas_u: "8", fltr_variance: "0.25", sensitivity: "0" } as const;
+
+/** Advanced-option config defaults (mirror the templates' original values). */
+const ADVANCED_DEFAULTS: Record<string, string> = {
+  axis1_pid_sensitivity: SERVO_DEFAULTS.sensitivity,
+  axis1_servo_acceleration: SERVO_DEFAULTS.acceleration,
+  axis1_servo_fltr_meas_u: SERVO_DEFAULTS.fltr_meas_u,
+  axis1_servo_fltr_variance: SERVO_DEFAULTS.fltr_variance,
+  axis2_pid_sensitivity: SERVO_DEFAULTS.sensitivity,
+  axis2_servo_acceleration: SERVO_DEFAULTS.acceleration,
+  axis2_servo_fltr_meas_u: SERVO_DEFAULTS.fltr_meas_u,
+  axis2_servo_fltr_variance: SERVO_DEFAULTS.fltr_variance,
+  home_range_axis1: "648000",
+  home_range_axis2: "648000",
+  mount_coords_memory: "OFF",
+  mount_enable_in_standby: "OFF",
+  status_buzzer_default: "OFF",
+  status_buzzer_memory: "ON",
+  st4_interface: "ON",
+  st4_hand_control: "ON",
+  st4_hand_control_focuser: "ON",
+  slew_rate_memory: "ON",
+  goto_feature: "ON",
+  limit_sense: "OFF",
+  park_sense: "OFF",
+  park_signal: "OFF",
+  park_status: "OFF",
+  park_strict: "OFF",
+  mflip_skip_home: "ON",
+  mflip_automatic_default: "ON",
+  mflip_automatic_memory: "ON",
+  mflip_pause_home_default: "OFF",
+  mflip_pause_home_memory: "ON",
+  pier_side_sync_change_sides: "OFF",
+  pier_side_preferred_default: "EAST",
+  pier_side_preferred_memory: "ON",
+  align_auto_home: "OFF",
+  align_model_memory: "ON",
+  align_max_stars: "AUTO",
+};
 
 export const GENERATOR_DEFAULTS: GeneratorConfig = {
   model: "GTR",
@@ -252,6 +379,14 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   monitor: "OFF",
   origin: "OFF",
   calibration: "OFF",
+  display_wifi_signal: "OFF",
+  display_high_precision: "ON",
+  mdns_server: "OFF",
+  time_ip_addr: "{129,6,15,28}",
+  axis1_servo_fltr: "KALMAN",
+  axis2_servo_fltr: "KALMAN",
+  axis1_servo_fltr_wsize: "10",
+  axis2_servo_fltr_wsize: "10",
   encoder: "OFF",
   encoder_count: "0",
   driver: "TMC2209",
@@ -268,7 +403,6 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   pec_sense: "OFF",
   home_sense: "OFF",
   home_switch: "OFF",
-  home_range: "7200",
   axis1_microsteps: "OFF",
   axis1_microsteps_goto: "OFF",
   axis2_microsteps: "OFF",
@@ -289,9 +423,10 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   axis2_pid_p_goto: PID_DEFAULTS.p_goto,
   axis2_pid_i_goto: PID_DEFAULTS.i_goto,
   axis2_pid_d_goto: PID_DEFAULTS.d_goto,
+  ...ADVANCED_DEFAULTS,
 };
 
-// Default answers = GTR-base preset + AP Wi-Fi.
+// Default answers = GTR-base preset + AP Wi-Fi + GPS/TPH defaults.
 export const DEFAULT_ANSWERS: GeneratorAnswers = {
   mount_type: "GTR-base",
   version: DEFAULT_VERSION,
@@ -308,17 +443,37 @@ export const DEFAULT_ANSWERS: GeneratorAnswers = {
   axis1_pid_p_goto: PID_DEFAULTS.p_goto,
   axis1_pid_i_goto: PID_DEFAULTS.i_goto,
   axis1_pid_d_goto: PID_DEFAULTS.d_goto,
+  axis1_pid_sensitivity: SERVO_DEFAULTS.sensitivity,
+  axis1_servo_acceleration: SERVO_DEFAULTS.acceleration,
+  axis1_servo_fltr_meas_u: SERVO_DEFAULTS.fltr_meas_u,
+  axis1_servo_fltr_variance: SERVO_DEFAULTS.fltr_variance,
   axis2_pid_p: PID_DEFAULTS.p,
   axis2_pid_i: PID_DEFAULTS.i,
   axis2_pid_d: PID_DEFAULTS.d,
   axis2_pid_p_goto: PID_DEFAULTS.p_goto,
   axis2_pid_i_goto: PID_DEFAULTS.i_goto,
   axis2_pid_d_goto: PID_DEFAULTS.d_goto,
+  axis2_pid_sensitivity: SERVO_DEFAULTS.sensitivity,
+  axis2_servo_acceleration: SERVO_DEFAULTS.acceleration,
+  axis2_servo_fltr_meas_u: SERVO_DEFAULTS.fltr_meas_u,
+  axis2_servo_fltr_variance: SERVO_DEFAULTS.fltr_variance,
+  axis1_servo_fltr: "KALMAN",
+  axis1_servo_fltr_wsize: "10",
+  axis2_servo_fltr: "KALMAN",
+  axis2_servo_fltr_wsize: "10",
   pec_spwr: PEC_ON.pec_spwr,
   pec_sense: PEC_ON.pec_sense,
   home_sense: HOMING_ON.home_sense,
   home_switch: HOMING_ON.home_switch,
-  home_range: HOMING_ON.home_range,
+  home_range_axis1: HOMING_ON.home_range_axis1,
+  home_range_axis2: HOMING_ON.home_range_axis2,
+  display_weather: "ON", // weather probe default on
+  display_temp: "ON",
+  display_wifi_signal: "ON", // Wi-Fi default on
+  display_monitor: "OFF",
+  display_origin: "OFF",
+  display_calibration: "OFF",
+  display_high_precision: "ON",
   wifi_enabled: "true",
   wifi_ap: "true",
   wifi_sta: "false",
@@ -338,9 +493,35 @@ export const DEFAULT_ANSWERS: GeneratorAnswers = {
   eth_gw: "192.168.1.1",
   weather_mode: "BME280_0x76", // TPH probe default for all mounts
   tls: "GPS", // GPS dongle default for all mounts
+  time_ip_addr: "129.6.15.28",
   pps: "OFF",
   pps_detect: "OFF",
   nv_driver: "NV_MB85RC64",
+  mount_coords_memory: ADVANCED_DEFAULTS.mount_coords_memory,
+  mount_enable_in_standby: ADVANCED_DEFAULTS.mount_enable_in_standby,
+  status_buzzer_default: ADVANCED_DEFAULTS.status_buzzer_default,
+  status_buzzer_memory: ADVANCED_DEFAULTS.status_buzzer_memory,
+  st4_interface: ADVANCED_DEFAULTS.st4_interface,
+  st4_hand_control: ADVANCED_DEFAULTS.st4_hand_control,
+  st4_hand_control_focuser: ADVANCED_DEFAULTS.st4_hand_control_focuser,
+  slew_rate_memory: ADVANCED_DEFAULTS.slew_rate_memory,
+  goto_feature: ADVANCED_DEFAULTS.goto_feature,
+  limit_sense: ADVANCED_DEFAULTS.limit_sense,
+  park_sense: ADVANCED_DEFAULTS.park_sense,
+  park_signal: ADVANCED_DEFAULTS.park_signal,
+  park_status: ADVANCED_DEFAULTS.park_status,
+  park_strict: ADVANCED_DEFAULTS.park_strict,
+  mflip_skip_home: ADVANCED_DEFAULTS.mflip_skip_home,
+  mflip_automatic_default: ADVANCED_DEFAULTS.mflip_automatic_default,
+  mflip_automatic_memory: ADVANCED_DEFAULTS.mflip_automatic_memory,
+  mflip_pause_home_default: ADVANCED_DEFAULTS.mflip_pause_home_default,
+  mflip_pause_home_memory: ADVANCED_DEFAULTS.mflip_pause_home_memory,
+  pier_side_sync_change_sides: ADVANCED_DEFAULTS.pier_side_sync_change_sides,
+  pier_side_preferred_default: ADVANCED_DEFAULTS.pier_side_preferred_default,
+  pier_side_preferred_memory: ADVANCED_DEFAULTS.pier_side_preferred_memory,
+  align_auto_home: ADVANCED_DEFAULTS.align_auto_home,
+  align_model_memory: ADVANCED_DEFAULTS.align_model_memory,
+  align_max_stars: ADVANCED_DEFAULTS.align_max_stars,
   onstepx_debug: "false",
   onstepx_nvwipe: "false",
   sws_debug: "false",
@@ -394,12 +575,26 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
   c.axis2_pid_i_goto = a.axis2_pid_i_goto;
   c.axis2_pid_d_goto = a.axis2_pid_d_goto;
 
+  // Advanced options (servo filter/accel/sensitivity, per-axis home range,
+  // mount/status/ST4/park/mflip/pier-side/align) — straight passthrough.
+  for (const k of ADVANCED_KEYS) c[k] = a[k];
+
   // PEC + homing.
   c.pec_spwr = a.pec_spwr || "0";
   c.pec_sense = a.pec_sense;
   c.home_sense = a.home_sense;
+  c.home_range_axis1 = a.home_range_axis1 || "648000";
+  c.home_range_axis2 = a.home_range_axis2 || "648000";
+
+  // Displays (user-overridable; defaults auto-derived in the wizard).
+  c.weather = a.display_weather;
+  c.temp = a.display_temp;
+  c.monitor = a.display_monitor;
+  c.origin = a.display_origin;
+  c.calibration = a.display_calibration;
+  c.display_wifi_signal = a.display_wifi_signal;
+  c.display_high_precision = a.display_high_precision;
   c.home_switch = a.home_switch;
-  c.home_range = a.home_range || "7200";
 
   // Wi-Fi (AP and station independent).
   const staOn = a.wifi_enabled === "true" && a.wifi_sta === "true";
@@ -431,6 +626,8 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     c.sta_enabled = "false";
     c.wifi_mode = "OFF";
   }
+  // mDNS server is only meaningful when Wi-Fi is on (OnStepX, 10.28u).
+  c.mdns_server = a.wifi_enabled === "true" ? "ON" : "OFF";
 
   // Ethernet.
   c.eth_dhcp = a.eth_dhcp;
@@ -451,6 +648,7 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
 
   // Weather + clock. NTP only valid with station Wi-Fi.
   c.weather_mode = a.weather_mode;
+  c.time_ip_addr = normalizeIp(a.time_ip_addr); // NTP server IP (10.28u)
   let tls = a.tls;
   if (tls === "NTP" && !staOn) tls = "DS3231";
   c.tls = tls;
@@ -460,13 +658,10 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     if (a.pps === "ON") c.pps_detect = a.pps_detect;
   }
 
-  // Inferred: encoder count + driver + servo displays + servo microsteps.
+  // Inferred: encoder count + driver + servo microsteps.
   c.encoder_count = ENCODER_COUNTS[c.encoder] ?? "0";
   c.driver = c.encoder !== "OFF" ? "SERVO_TMC2209" : "TMC2209";
   if (c.driver === "SERVO_TMC2209") {
-    c.monitor = "ON";
-    c.origin = "ON";
-    c.calibration = "ON";
     // OnStepX requires MICROSTEPS=256 / MICROSTEPS_GOTO=OFF for SERVO_TMC2209.
     c.axis1_microsteps = "256";
     c.axis2_microsteps = "256";

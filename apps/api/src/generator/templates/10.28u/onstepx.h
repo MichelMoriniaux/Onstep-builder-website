@@ -17,6 +17,7 @@
 // CONTROLLER ======================================================================================================================
 
 #define CONFIG_NAME "JTW Trident $model (MANTICORE) $options"
+#define HOST_NAME                "OnStep" // nStep", Hostname for this device up to 16 chars.                                 Adjust
 
 #define DRIVER_TMC_STEPPER                // use TMCStepper library
 #define FRAM_WRITE_WAIT 0                 // fast writes into FRAM are ok
@@ -36,12 +37,17 @@
 #define STA_IP_ADDR         $sta_wifi_ip // ..168,1,55}, Wifi Station/Ethernet IP Address.                                   Adjust
 #define STA_GW_ADDR         $sta_wifi_gw // ..,168,1,1}, Wifi Station/Ethernet GATEWAY Address.                              Adjust
 #define STA_SN_MASK       $sta_wifi_mask // ..55,255,0}, Wifi Station/Ethernet SUBNET Mask.                                  Adjust
+#define DISPLAY_LANGUAGE             L_en //   L_en, English. Or L_ce, L_de, L_en, L_us, L_es two letter country code.        Adjust
 #define DISPLAY_WEATHER                $weather // website, display weather
 #define DISPLAY_INTERNAL_TEMPERATURE   $temp // website, display internal MCU temperature
+#define DISPLAY_WIFI_SIGNAL_STRENGTH   $display_wifi_signal // website, display wifi signal strength (wifi only)
+#define DISPLAY_RESET_CONTROLS         ON //    OFF, ON allows reset if supported, FWU for STM32 firmware upload pin HIGH.    Option
+#define DISPLAY_COORDINATE_ORIGIN      $origin //    OFF, ON to display the coordinate origin control tile on the mount page.      Option
 #define DISPLAY_SERVO_MONITOR          $monitor // website, display servo monitor
-#define DISPLAY_SERVO_ORIGIN_CONTROLS  $origin // website, display servo absolute encoder origin controls
-#define DISPLAY_SERVO_CALIBRATION      $calibration // website, display servo RA axis calibration controls
+#define DISPLAY_STALLGUARD_MONITOR     $monitor //    OFF, ON to display the StallGuard monitor for OnStepX (any axis.)             Option
 #define HOME_SWITCH_DIRECTION_CONTROL  $home_switch // website, display home switch reversal
+#define DISPLAY_HIGH_PRECISION_COORDS  $display_high_precision //
+#define MDNS_SERVER                   $mdns_server
 
 
 // PINMAP ------------------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Controller#PINMAP
@@ -110,16 +116,13 @@
 #define AXIS1_MOTOR_STEPS_PER_DEGREE 25600 // 
 #define AXIS1_SYNC_THRESHOLD_DEGREES  5.0 // in degrees (converts to _SYNC_THRESHOLD)
 #define AXIS1_TARGET_TOLERANCE        5.0 // in arc-seconds
-#define AXIS1_SERVO_ACCELERATION      100 // acceleration, in %/s of AXIS1_SERVO_VELOCITY_MAX
-#define AXIS1_SERVO_VELOCITY_MAX_DPS 10.0 // in degrees per second at 100% power (converts to _SERVO_VELOCITY_MAX)
-#define AXIS1_SERVO_VELOCITY_FACTOR frequency*(AXIS1_MOTOR_STEPS_PER_DEGREE/AXIS1_ENCODER_COUNTS_PER_DEGREE) // encoder cps to motor sps
+#define AXIS1_SERVO_ACCELERATION      $axis1_servo_acceleration // acceleration, in %/s of AXIS1_SERVO_VELOCITY_MAX
 #define AXIS1_SERVO_VELOCITY_PWMTHRS ((AXIS1_MOTOR_STEPS_PER_DEGREE*3)/240) // in 256x steps per second
-#define AXIS1_SERVO_VELOCITY_TRACKING (AXIS1_MOTOR_STEPS_PER_DEGREE/240.0)  // in 256x steps per second
-#define AXIS1_SERVO_VELOCITY_CALIBRATION 32.0 // calibrate at 32x AXIS1_SERVO_VELOCITY_TRACKING
-#define AXIS1_SERVO_FLTR           KALMAN 
-#define AXIS1_SERVO_FLTR_MEAS_U         8
-#define AXIS1_SERVO_FLTR_VARIANCE    0.25
-#define AXIS1_PID_SENSITIVITY           0 // in % power to using 100% of pid set two (_GOTO)
+#define AXIS1_SERVO_FLTR           $axis1_servo_fltr 
+#define AXIS1_SERVO_FLTR_MEAS_U         $axis1_servo_fltr_meas_u
+#define AXIS1_SERVO_FLTR_VARIANCE    $axis1_servo_fltr_variance
+#define AXIS1_SERVO_FLTR_WSIZE      $axis1_servo_fltr_wsize // rolling filter window size
+#define AXIS1_PID_SENSITIVITY           $axis1_pid_sensitivity // in % power to using 100% of pid set two (_GOTO)
 #define AXIS1_PID_P                   $axis1_pid_p // P = proportional
 #define AXIS1_PID_I                   $axis1_pid_i // I = integral
 #define AXIS1_PID_D                   $axis1_pid_d // D = derivative
@@ -133,21 +136,19 @@
 #define AXIS2_MOTOR_STEPS_PER_DEGREE 25600 // 
 #define AXIS2_SYNC_THRESHOLD_DEGREES  5.0 // in degrees (converts to _SYNC_THRESHOLD)
 #define AXIS2_TARGET_TOLERANCE        5.0 // in arc-seconds
-#define AXIS2_SERVO_ACCELERATION      100 // acceleration, in %/s of AXIS1_SERVO_VELOCITY_MAX
-#define AXIS2_SERVO_VELOCITY_MAX_DPS 10.0 // in degrees per second at 100% power (converts to _SERVO_VELOCITY_MAX)
-#define AXIS2_SERVO_VELOCITY_FACTOR frequency*(AXIS2_MOTOR_STEPS_PER_DEGREE/AXIS2_ENCODER_COUNTS_PER_DEGREE) // encoder cps to motor sps
+#define AXIS2_SERVO_ACCELERATION      $axis2_servo_acceleration // acceleration, in %/s of AXIS1_SERVO_VELOCITY_MAX
 #define AXIS2_SERVO_VELOCITY_PWMTHRS ((AXIS2_MOTOR_STEPS_PER_DEGREE*3)/240) // in 256x steps per second
-#define AXIS2_SERVO_FLTR           KALMAN 
-#define AXIS2_SERVO_FLTR_MEAS_U         8
-#define AXIS2_SERVO_FLTR_VARIANCE    0.25
-#define AXIS2_PID_SENSITIVITY           0 // in % power to using 100% of pid set two (_GOTO)
+#define AXIS2_SERVO_FLTR           $axis2_servo_fltr 
+#define AXIS2_SERVO_FLTR_MEAS_U         $axis2_servo_fltr_meas_u
+#define AXIS2_SERVO_FLTR_VARIANCE    $axis2_servo_fltr_variance
+#define AXIS2_SERVO_FLTR_WSIZE      $axis2_servo_fltr_wsize // rolling filter window size
+#define AXIS2_PID_SENSITIVITY           $axis2_pid_sensitivity // in % power to using 100% of pid set two (_GOTO)
 #define AXIS2_PID_P                   $axis2_pid_p // P = proportional
 #define AXIS2_PID_I                   $axis2_pid_i // I = integral
 #define AXIS2_PID_D                   $axis2_pid_d // D = derivative
 #define AXIS2_PID_P_GOTO              $axis2_pid_p_goto // P = proportional
 #define AXIS2_PID_I_GOTO              $axis2_pid_i_goto // I = integral
 #define AXIS2_PID_D_GOTO              $axis2_pid_d_goto // D = derivative
-
 
 // ------------------------------------------------------------------------------------------------------------
 
@@ -158,8 +159,12 @@
 #define AXIS1_DRIVER_MODEL  $driver //    OFF, Enter motor driver model (above) in both axes to activate the mount.    <-Often
 
 // If runtime axis settings are enabled changes in the section below will be ignored (disable in SWS or by wiping NV/EEPROM):
-// \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ 
-#define AXIS1_STEPS_PER_DEGREE AXIS1_ENCODER_COUNTS_PER_DEGREE // 6400.0, n. Number of steps per degree:                     <-Req'd
+// \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/
+// AXIS1_COUNTS_PER_DEGREE drives AxisSettings/GOTO/limits math and must be the real encoder resolution.
+#define AXIS1_COUNTS_PER_DEGREE AXIS1_ENCODER_COUNTS_PER_DEGREE
+// For SERVO_TMC2209, AXIS1_STEPS_PER_DEGREE is used only to derive countsToStepsRatio (Mount.axis.cpp: AXIS1_STEPS_PER_DEGREE/AXIS1_COUNTS_PER_DEGREE)
+// so it must be the physical motor's real microstep resolution, not the encoder value, or the ratio comes out as 1.0 instead of ~0.549335.
+#define AXIS1_STEPS_PER_DEGREE AXIS1_MOTOR_STEPS_PER_DEGREE // 6400.0, n. Number of steps per degree:                       <-Req'd
                                           //         n = (stepper_steps * micro_steps * overall_gear_reduction)/360.0
 #define AXIS1_REVERSE                 $axis1_reverse //    OFF, ON Reverses movement direction, or reverse wiring instead to correct.   <-Often
 #define AXIS1_LIMIT_MIN              -180 //   -180, n. Where n= -90..-360 (degrees.) Minimum "Hour Angle" or Azimuth.        Adjust
@@ -182,7 +187,7 @@
 #define AXIS1_POWER_DOWN              OFF //    OFF, ON Powers off 30sec after movement stops or 10min after last<=1x guide.  Infreq
 
 #define AXIS1_SENSE_HOME              $home_sense //    OFF, HIGH or LOW enables & state clockwise home position, as seen from front. Option
-#define HOME_OFFSET_RANGE_AXIS1    $home_range //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
+#define HOME_OFFSET_RANGE_AXIS1    $home_range_axis1 //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
 #define AXIS1_SENSE_LIMIT_MIN LIMIT_SENSE // ...NSE, HIGH or LOW state on limit sense switch stops movement.                  Option
 #define AXIS1_SENSE_LIMIT_MAX LIMIT_SENSE // ...NSE, HIGH or LOW state on limit sense switch stops movement.                  Option
                                           //         Digital, optionally add: |HYST(n) Where n=0..1023 stability time in ms.
@@ -195,7 +200,11 @@
 
 // If runtime axis settings are enabled changes in the section below will be ignored (disable in SWS or by wiping NV/EEPROM):
 // \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/ \/
-#define AXIS2_STEPS_PER_DEGREE AXIS2_ENCODER_COUNTS_PER_DEGREE // 6400.0, n. Number of steps per degree:                     <-Req'd
+// AXIS2_COUNTS_PER_DEGREE drives AxisSettings/GOTO/limits math and must be the real encoder resolution.
+#define AXIS2_COUNTS_PER_DEGREE AXIS2_ENCODER_COUNTS_PER_DEGREE
+// For SERVO_TMC2209, AXIS2_STEPS_PER_DEGREE is used only to derive countsToStepsRatio (Mount.axis.cpp: AXIS2_STEPS_PER_DEGREE/AXIS2_COUNTS_PER_DEGREE)
+// so it must be the physical motor's real microstep resolution, not the encoder value, or the ratio comes out as 1.0 instead of ~0.549335.
+#define AXIS2_STEPS_PER_DEGREE AXIS2_MOTOR_STEPS_PER_DEGREE // 6400.0, n. Number of steps per degree:                       <-Req'd
                                           //         n = (stepper_steps * micro_steps * overall_gear_reduction)/360.0
 #define AXIS2_REVERSE                 $axis2_reverse //    OFF, ON Reverses movement direction, or reverse wiring instead to correct.   <-Often
 #define AXIS2_LIMIT_MIN               -90 //    -90, n. Where n=-90..0 (degrees.) Minimum allowed Declination or Altitude.    Infreq
@@ -218,7 +227,7 @@
 #define AXIS2_POWER_DOWN              OFF //    OFF, ON Powers off 30sec after movement stops or 10min after last<=1x guide.  Option
 
 #define AXIS2_SENSE_HOME              $home_sense //    OFF, HIGH or LOW enables & state clockwise home position, as seen from above. Option
-#define HOME_OFFSET_RANGE_AXIS2    $home_range //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
+#define HOME_OFFSET_RANGE_AXIS2    $home_range_axis2 //    7200, allow adjusting home offset up to +/- 2 degrees                         Infreq
 #define AXIS2_SENSE_LIMIT_MIN LIMIT_SENSE // ...NSE, HIGH or LOW state on limit sense switch stops movement.                  Option
 #define AXIS2_SENSE_LIMIT_MAX LIMIT_SENSE // ...NSE, HIGH or LOW state on limit sense switch stops movement.                  Option
 
@@ -236,47 +245,49 @@
                                           //              at the poles. Use TOPO_STRICT to apply refraction even in that case.
                                           //              Use OBSERVED_PLACE for no refraction.
 
-#define MOUNT_COORDS_MEMORY           OFF //    OFF, ON Remembers approximate mount coordinates across power cycles.          Option
+#define MOUNT_COORDS_MEMORY           $mount_coords_memory //    OFF, ON Remembers approximate mount coordinates across power cycles.          Option
                                           //         Requires FRAM NV memory and the mount must not move while powered down.
 
-#define MOUNT_ENABLE_IN_STANDBY       OFF //    OFF, ON Enables mount motor drivers while in standby.                         Infreq
+#define MOUNT_ENABLE_IN_STANDBY       $mount_enable_in_standby //    OFF, ON Enables mount motor drivers while in standby.                         Infreq
 
 // TIME AND LOCATION ---------------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Mount#TLS
 #define TIME_LOCATION_SOURCE       $tls //    OFF, DS3231 (I2C,) SD3031 (I2C,) TEENSY (T3.2 etc,) GPS, or NTP source.       Option
                                           //         Provides Date/Time, and if available, PPS & Lat/Long also.
+#define TIME_IP_ADDR     $time_ip_addr  // time-a-g.nist.gov
 #define TIME_LOCATION_PPS_SENSE       $pps_detect //    OFF, HIGH senses PPS (pulse per second,) signal rising edge, or use LOW for   Option
                                           //         falling edge, or use BOTH for rising and falling edges.
                                           //         Better tracking accuracy especially for Mega2560's w/ceramic resonator.
+#define TIME_LOCATION_PPS_SYNC        OFF // 
 #define TIME_LOCATION_SOURCE_FALLBACK $tls_fallback // OFF, alternate TLS, must be differnet than above and not GPS or NTP           Option
 
 // STATUS ------------------------------------------------------ see https://onstep.groups.io/g/main/wiki/Configuration_Mount#STATUS
 #define STATUS_MOUNT_LED               ON //    OFF, ON Flashes proportional to rate of movement or solid on for slews.       Option
 #define STATUS_BUZZER                2000 //    OFF, ON, n. Where n=100..6000 (Hz freq.) for speaker. ON for piezo buzzer.    Option
-#define STATUS_BUZZER_DEFAULT         OFF //    OFF, ON default starts w/buzzer enabled.                                      Option
-#define STATUS_BUZZER_MEMORY           ON //    OFF, ON to remember buzzer setting across power cycles.                       Option
+#define STATUS_BUZZER_DEFAULT         $status_buzzer_default //    OFF, ON default starts w/buzzer enabled.                                      Option
+#define STATUS_BUZZER_MEMORY           $status_buzzer_memory //    OFF, ON to remember buzzer setting across power cycles.                       Option
 
 // ST4 INTERFACE -------------------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Mount#ST4
 // *** It is up to you to verify the interface meets the electrical specifications of any connected device, use at your own risk ***
-#define ST4_INTERFACE                  ON //    OFF, ON enables interface. <= 1X guides unless hand control mode.             Option
+#define ST4_INTERFACE                  $st4_interface //    OFF, ON enables interface. <= 1X guides unless hand control mode.             Option
                                           //         During goto btn press: aborts slew or continue meridian flip pause home
-#define ST4_HAND_CONTROL               ON //     ON, ON for hand controller special features and SHC support.                 Option
+#define ST4_HAND_CONTROL               $st4_hand_control //     ON, ON for hand controller special features and SHC support.                 Option
                                           //         Hold [E]+[W] btns >2s: Guide rate   [E]-  [W]+  [N] trk on/off [S] sync
                                           //         Hold [N]+[S] btns >2s: Usr cat item [E]-  [W]+  [N] goto [S] snd on/off
-#define ST4_HAND_CONTROL_FOCUSER       ON //     ON, ON alternate to above: Focuser move [E]f1 [W]f2 [N]-     [S]+            Option
+#define ST4_HAND_CONTROL_FOCUSER       $st4_hand_control_focuser //     ON, ON alternate to above: Focuser move [E]f1 [W]f2 [N]-     [S]+            Option
 
 // GUIDING BEHAVIOUR ------------------------------------------ see https://onstep.groups.io/g/main/wiki/Configuration_Mount#GUIDING
 #define GUIDE_TIME_LIMIT                0 //     10, n. Time limit n=0..120 seconds. Use 0 to disable.                        Adjust
 #define GUIDE_DISABLE_BACKLASH         ON //    OFF, Disable backlash takeup during guiding at <= 1X.                         Option
 
 // LIMITS ------------------------------------------------------ see https://onstep.groups.io/g/main/wiki/Configuration_Mount#LIMITS
-#define LIMIT_SENSE                   OFF //    OFF, HIGH or LOW state on limit sense switch stops movement.                  Option
+#define LIMIT_SENSE                   $limit_sense //    OFF, HIGH or LOW state on limit sense switch stops movement.                  Option
                                           //         note that ON also disables all motion until date/time are set.
 
 // PARKING ---------------------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Mount#PARKING
-#define PARK_SENSE                    OFF //    OFF, HIGH or LOW state indicates mount is in the park orientation.            Option
-#define PARK_SIGNAL                   OFF //    OFF, HIGH or LOW state park input signal triggers parking.                    Option
-#define PARK_STATUS                   OFF //    OFF, signals with a HIGH or LOW state when successfully parked.               Option 
-#define PARK_STRICT                   OFF //    OFF, ON Un-parking is only allowed if successfully parked.                    Option
+#define PARK_SENSE                    $park_sense //    OFF, HIGH or LOW state indicates mount is in the park orientation.            Option
+#define PARK_SIGNAL                   $park_signal //    OFF, HIGH or LOW state park input signal triggers parking.                    Option
+#define PARK_STATUS                   $park_status //    OFF, signals with a HIGH or LOW state when successfully parked.               Option 
+#define PARK_STRICT                   $park_strict //    OFF, ON Un-parking is only allowed if successfully parked.                    Option
 
 // PEC ------------------------------------------------------------ see https://onstep.groups.io/g/main/wiki/Configuration_Mount#PEC
 #define PEC_STEPS_PER_WORM_ROTATION     $pec_spwr //     0, n. Steps per worm rotation (0 disables else 720 sec buffer allocated.)  <-Req'd
@@ -296,11 +307,11 @@
 // SLEWING BEHAVIOUR ------------------------------------------ see https://onstep.groups.io/g/main/wiki/Configuration_Mount#SLEWING
 #define SLEW_RATE_BASE_DESIRED       3.00 //    1.0, n. Desired slew rate in deg/sec. Adjustable at run-time from            <-Req'd
                                           //         1/2 to 2x this rate, and as performance considerations require.
-#define SLEW_RATE_MEMORY               ON //    OFF, ON Remembers rates set across power cycles.                              Option
+#define SLEW_RATE_MEMORY               $slew_rate_memory //    OFF, ON Remembers rates set across power cycles.                              Option
 #define SLEW_ACCELERATION_DIST       10.0 //    5.0, n, (degrees.) Approx. distance for acceleration (and deceleration.)      Adjust
 #define SLEW_RAPID_STOP_DIST          2.5 //    2.0, n, (degrees.) Approx. distance required to stop when a slew              Adjust
                                           //         is aborted or a limit is exceeded.
-#define GOTO_FEATURE                   ON //     ON, Use OFF to disable mount Goto features.                                  Infreq
+#define GOTO_FEATURE                   $goto_feature //     ON, Use OFF to disable mount Goto features.                                  Infreq
 #define GOTO_OFFSET                   0.0 //   0.25, Offset in deg's for goto target unidirectional approach, 0.0 disables    Adjust
 #define GOTO_OFFSET_ALIGN             OFF //    OFF, ON skips final phase of goto for align stars so user tends to approach   Option
                                           //         from the correct direction when centering.
@@ -308,20 +319,20 @@
 #define GOTO_SETTLE_TIME             1000 //         Time to wait for servo positions to settle, in milliseconds              Option
 
 // PIER SIDE BEHAVIOUR --------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Mount#PIERSIDE
-#define MFLIP_SKIP_HOME                ON //    OFF, ON Goto directly to the destination without visiting home position.      Option
-#define MFLIP_AUTOMATIC_DEFAULT        ON //    OFF, ON Start with automatic meridian flips enabled.                          Option
-#define MFLIP_AUTOMATIC_MEMORY         ON //    OFF, ON Remember automatic meridian flip setting across power cycles.         Option
-#define MFLIP_PAUSE_HOME_DEFAULT      OFF //    OFF, ON Start with meridian flip pause at home enabed.                        Infreq
-#define MFLIP_PAUSE_HOME_MEMORY        ON //    OFF, ON Remember meridian flip pause at home setting across power cycles.     Infreq
+#define MFLIP_SKIP_HOME                $mflip_skip_home //    OFF, ON Goto directly to the destination without visiting home position.      Option
+#define MFLIP_AUTOMATIC_DEFAULT        $mflip_automatic_default //    OFF, ON Start with automatic meridian flips enabled.                          Option
+#define MFLIP_AUTOMATIC_MEMORY         $mflip_automatic_memory //    OFF, ON Remember automatic meridian flip setting across power cycles.         Option
+#define MFLIP_PAUSE_HOME_DEFAULT      $mflip_pause_home_default //    OFF, ON Start with meridian flip pause at home enabed.                        Infreq
+#define MFLIP_PAUSE_HOME_MEMORY        $mflip_pause_home_memory //    OFF, ON Remember meridian flip pause at home setting across power cycles.     Infreq
 
-#define PIER_SIDE_SYNC_CHANGE_SIDES   OFF //    OFF, ON Allows sync to change pier side, for GEM mounts.                      Option
-#define PIER_SIDE_PREFERRED_DEFAULT  EAST //   BEST, BEST Stays on current side if possible. EAST or WEST switch if possible. Option
-#define PIER_SIDE_PREFERRED_MEMORY     ON //    OFF, ON Remember preferred pier side setting across power cycles.             Option
+#define PIER_SIDE_SYNC_CHANGE_SIDES   $pier_side_sync_change_sides //    OFF, ON Allows sync to change pier side, for GEM mounts.                      Option
+#define PIER_SIDE_PREFERRED_DEFAULT  $pier_side_preferred_default //   BEST, BEST Stays on current side if possible. EAST or WEST switch if possible. Option
+#define PIER_SIDE_PREFERRED_MEMORY     $pier_side_preferred_memory //    OFF, ON Remember preferred pier side setting across power cycles.             Option
 
 // ALIGN -------------------------------------------------------- see https://onstep.groups.io/g/main/wiki/Configuration_Mount#ALIGN
-#define ALIGN_AUTO_HOME               OFF //    OFF, ON uses home switches to find home first when starting an align.         Option
-#define ALIGN_MODEL_MEMORY             ON //    OFF, ON Restores any pointing model saved in NV at startup.                   Option
-#define ALIGN_MAX_STARS              AUTO //   AUTO, Uses HAL specified default (either 6 or 9 stars.)                        Infreq
+#define ALIGN_AUTO_HOME               $align_auto_home //    OFF, ON uses home switches to find home first when starting an align.         Option
+#define ALIGN_MODEL_MEMORY             $align_model_memory //    OFF, ON Restores any pointing model saved in NV at startup.                   Option
+#define ALIGN_MAX_STARS              $align_max_stars //   AUTO, Uses HAL specified default (either 6 or 9 stars.)                        Infreq
                                           //         Or use n. Where n=1 (for Sync only) or 3 to 9 (for Goto Assist.)
 
 // =================================================================================================================================

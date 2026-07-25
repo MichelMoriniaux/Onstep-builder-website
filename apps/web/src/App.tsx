@@ -23,7 +23,7 @@ export default function App() {
           <h1 className="text-3xl font-bold flex items-center gap-2">🔭 Firmware Builder for JTW mounts</h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">
             Upload your configs or configure a JTW mount, chose a code version, and compile OnStepX /
-            SmartWebServer firmware for the ESP32 - ready to flash.
+            SmartWebServer firmware for the ESP32 Manticore - ready to flash.
           </p>
           <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700/50 px-4 py-3 text-sm text-red-800 dark:text-red-200">
             WARNING! Use this at your own risk! Neither this website nor JTW will provide any support if you screw up your mount
