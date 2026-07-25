@@ -94,6 +94,13 @@ export interface GeneratorAnswers {
   tls: string; // DS3231 | NTP | GPS
   pps: string; // OFF | ON
   pps_detect: string; // OFF | HIGH | LOW | BOTH
+  nv_driver: string; // NV_MB85RC64 | NV_DEFAULT
+
+  // Debug / maintenance — operate on the Extended.config.h DEBUG / NV_WIPE defines.
+  onstepx_debug: string; // "true" | "false"
+  onstepx_nvwipe: string; // "true" | "false"
+  sws_debug: string; // "true" | "false"
+  sws_nvwipe: string; // "true" | "false"
 }
 
 /** Full substitution map (every template placeholder). */
@@ -102,7 +109,7 @@ export type GeneratorConfig = Record<string, string>;
 export interface GeneratedFiles {
   // Plugins.config.h enables the website plugin; included in the OnStepX build
   // only when Wi-Fi is on (see wifiNeedsPlugin).
-  onstepx: { "Config.h": string; "Plugins.config.h": string };
+  onstepx: { "Config.h": string; "Extended.config.h": string; "Plugins.config.h": string };
   sws: { "Config.h": string; "Extended.config.h": string };
 }
 
@@ -180,6 +187,10 @@ export const GEN_OPTIONS = {
     { value: "HIGH", label: "HIGH" },
     { value: "LOW", label: "LOW" },
   ] as GenOption[],
+  nv_driver: [
+    { value: "NV_MB85RC64", label: "MB85RC64 FRAM (default)", help: "Standard JTW non-volatile storage chip." },
+    { value: "NV_DEFAULT", label: "Default / no FRAM", help: "Ignore FRAM support; use the platform default." },
+  ] as GenOption[],
   yesNo: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
@@ -248,6 +259,11 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   tls_fallback: "OFF",
   pps: "OFF",
   pps_detect: "OFF",
+  nv_driver: "NV_MB85RC64",
+  onstepx_debug: "OFF",
+  onstepx_nv_wipe: "OFF",
+  sws_debug: "OFF",
+  sws_nv_wipe: "OFF",
   pec_spwr: "0",
   pec_sense: "OFF",
   home_sense: "OFF",
@@ -320,10 +336,15 @@ export const DEFAULT_ANSWERS: GeneratorAnswers = {
   eth_ip: "192.168.1.56",
   eth_mask: "255.255.255.0",
   eth_gw: "192.168.1.1",
-  weather_mode: "OFF",
-  tls: "DS3231",
+  weather_mode: "BME280_0x76", // TPH probe default for all mounts
+  tls: "GPS", // GPS dongle default for all mounts
   pps: "OFF",
   pps_detect: "OFF",
+  nv_driver: "NV_MB85RC64",
+  onstepx_debug: "false",
+  onstepx_nvwipe: "false",
+  sws_debug: "false",
+  sws_nvwipe: "false",
 };
 
 const ENCODER_COUNTS: Record<string, string> = {
@@ -418,6 +439,15 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     c.eth_mask = normalizeIp(a.eth_mask);
     c.eth_gw = normalizeIp(a.eth_gw);
   }
+
+  // Non-volatile storage driver.
+  c.nv_driver = a.nv_driver;
+
+  // Debug / maintenance flags in each firmware's Extended.config.h.
+  c.onstepx_debug = a.onstepx_debug === "true" ? "VERBOSE" : "OFF";
+  c.onstepx_nv_wipe = a.onstepx_nvwipe === "true" ? "ON" : "OFF";
+  c.sws_debug = a.sws_debug === "true" ? "VERBOSE" : "OFF";
+  c.sws_nv_wipe = a.sws_nvwipe === "true" ? "ON" : "OFF";
 
   // Weather + clock. NTP only valid with station Wi-Fi.
   c.weather_mode = a.weather_mode;

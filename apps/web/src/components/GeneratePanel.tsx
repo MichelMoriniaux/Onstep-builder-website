@@ -61,6 +61,7 @@ export function GeneratePanel({ onBuild }: Props) {
       if (build.onstepx) {
         const oxFiles = new Map<string, File>([
           ["Config.h", fileFrom(generated.onstepx["Config.h"], "Config.h")],
+          ["Extended.config.h", fileFrom(generated.onstepx["Extended.config.h"], "Extended.config.h")],
         ]);
         // Wi-Fi on → include the website plugin config so the build pulls in the plugin.
         if (wifiNeedsPlugin(answers)) {
@@ -127,6 +128,7 @@ export function GeneratePanel({ onBuild }: Props) {
               Generated files (preview)
             </div>
             <Preview name="OnStepX / Config.h" content={generated.onstepx["Config.h"]} />
+            <Preview name="OnStepX / Extended.config.h" content={generated.onstepx["Extended.config.h"]} />
             {wifiNeedsPlugin(answers) && (
               <Preview name="OnStepX / Plugins.config.h" content={generated.onstepx["Plugins.config.h"]} />
             )}

@@ -96,14 +96,13 @@ export function GeneratorWizard({ answers, onChange }: Props) {
         )}
       </div>
 
-      {/* 4 — All options (override) */}
-      <div>
-        <SectionTitle>4 · Options</SectionTitle>
-        <p className="text-xs text-slate-500 mb-4 -mt-2">
+      {/* 4 — All options (override): expandable, with expandable subsections */}
+      <Collapsible title="4 · Options">
+        <p className="text-xs text-slate-500 mb-4">
           Pre-filled from the mount type — override anything here.
         </p>
 
-        <SubHead>Drivetrain</SubHead>
+        <Subsection title="Drivetrain" defaultOpen>
         <Grid>
           <Select label="Encoders" value={answers.encoder} options={forModel(GEN_OPTIONS.encoder, answers.model)} onChange={(v) => set({ encoder: v })} />
           <Select label="Tracking compensation" value={answers.compensation} options={GEN_OPTIONS.compensation} onChange={(v) => set({ compensation: v })} />
@@ -116,21 +115,24 @@ export function GeneratorWizard({ answers, onChange }: Props) {
             </>
           )}
         </Grid>
+        </Subsection>
 
-        <SubHead>Homing</SubHead>
+        <Subsection title="Homing">
         <Grid>
           <Select label="Home sensor" value={answers.home_sense} options={GEN_OPTIONS.home_sense} onChange={(v) => set({ home_sense: v })} />
           <Select label="Home switch reversal (SWS)" value={answers.home_switch} options={GEN_OPTIONS.onOff} onChange={(v) => set({ home_switch: v })} />
           <Text label="Home offset range (arcsec)" value={answers.home_range} onChange={(v) => set({ home_range: v })} mono />
         </Grid>
+        </Subsection>
 
-        <SubHead>PEC</SubHead>
+        <Subsection title="PEC">
         <Grid>
           <Select label="PEC sensor" value={answers.pec_sense} options={GEN_OPTIONS.pec_sense} onChange={(v) => set({ pec_sense: v })} />
           <Text label="Steps per worm rotation (0 = off)" value={answers.pec_spwr} onChange={(v) => set({ pec_spwr: v })} mono />
         </Grid>
+        </Subsection>
 
-        <SubHead>Ethernet, clock &amp; weather</SubHead>
+        <Subsection title="Ethernet, clock &amp; weather">
         <Grid>
           <Select label="Ethernet DHCP" value={answers.eth_dhcp} options={GEN_OPTIONS.yesNo} onChange={(v) => set({ eth_dhcp: v })} />
           {answers.eth_dhcp === "false" && (
@@ -150,20 +152,55 @@ export function GeneratorWizard({ answers, onChange }: Props) {
               )}
             </>
           )}
+          <Select label="Non-volatile storage" value={answers.nv_driver} options={GEN_OPTIONS.nv_driver} onChange={(v) => set({ nv_driver: v })} />
         </Grid>
+        </Subsection>
 
         {hasEncoder && (
-          <details className="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-600 dark:text-slate-300">
-              Servo PID (advanced)
-            </summary>
-            <div className="mt-4 space-y-4">
+          <Subsection title="Servo PID (advanced)">
+            <div className="space-y-4">
               <PidAxis title="Axis 1 (RA/Az)" a={answers} keys={["axis1_pid_p", "axis1_pid_i", "axis1_pid_d", "axis1_pid_p_goto", "axis1_pid_i_goto", "axis1_pid_d_goto"]} set={set} />
               <PidAxis title="Axis 2 (Dec/Alt)" a={answers} keys={["axis2_pid_p", "axis2_pid_i", "axis2_pid_d", "axis2_pid_p_goto", "axis2_pid_i_goto", "axis2_pid_d_goto"]} set={set} />
             </div>
-          </details>
+          </Subsection>
         )}
-      </div>
+      </Collapsible>
+
+      {/* 5 — Debug / Maintenance */}
+      <Collapsible title="5 · Debug / Maintenance">
+        <Subsection title="OnStepX">
+          <div className="space-y-3">
+            <Checkbox
+              label="Generate an NVRAM wipe image"
+              help="Sets NV_WIPE=ON. Flash, wait ~2 min, then reflash a normal image — leaving it on wears the NV."
+              checked={answers.onstepx_nvwipe === "true"}
+              onChange={(c) => set({ onstepx_nvwipe: c ? "true" : "false" })}
+            />
+            <Checkbox
+              label="Generate a debug image"
+              help="Sets DEBUG=VERBOSE on the debug serial port."
+              checked={answers.onstepx_debug === "true"}
+              onChange={(c) => set({ onstepx_debug: c ? "true" : "false" })}
+            />
+          </div>
+        </Subsection>
+        <Subsection title="SmartWebServer">
+          <div className="space-y-3">
+            <Checkbox
+              label="Generate an NVRAM wipe image"
+              help="Sets NV_WIPE=ON. Flash, wait ~2 min, then reflash a normal image — leaving it on wears the NV."
+              checked={answers.sws_nvwipe === "true"}
+              onChange={(c) => set({ sws_nvwipe: c ? "true" : "false" })}
+            />
+            <Checkbox
+              label="Generate a debug image"
+              help="Sets DEBUG=VERBOSE on the debug serial port."
+              checked={answers.sws_debug === "true"}
+              onChange={(c) => set({ sws_debug: c ? "true" : "false" })}
+            />
+          </div>
+        </Subsection>
+      </Collapsible>
     </div>
   );
 }
@@ -206,8 +243,50 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">{children}</h3>;
 }
 
-function SubHead({ children }: { children: React.ReactNode }) {
-  return <h4 className="text-xs font-semibold text-slate-500 mt-5 mb-2">{children}</h4>;
+/** Section-level expandable (e.g. "4 · Options"). */
+function Collapsible({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details open={defaultOpen} className="group/collap">
+      <summary className="flex items-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-sm font-semibold uppercase tracking-wide text-slate-500 mb-3">
+        <svg className="h-3.5 w-3.5 shrink-0 transition-transform group-open/collap:rotate-90" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M7 5l6 5-6 5V5z" />
+        </svg>
+        {title}
+      </summary>
+      <div>{children}</div>
+    </details>
+  );
+}
+
+/** Expandable subsection nested inside a Collapsible. */
+function Subsection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details open={defaultOpen} className="group/sub rounded-lg border border-slate-200 dark:border-slate-700 mb-3">
+      <summary className="flex items-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <svg className="h-3.5 w-3.5 shrink-0 transition-transform group-open/sub:rotate-90" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d="M7 5l6 5-6 5V5z" />
+        </svg>
+        {title}
+      </summary>
+      <div className="px-3 pb-3">{children}</div>
+    </details>
+  );
 }
 
 function Grid({ children }: { children: React.ReactNode }) {

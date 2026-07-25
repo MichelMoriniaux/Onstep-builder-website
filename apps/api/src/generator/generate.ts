@@ -32,8 +32,9 @@ export function substitute(tpl: string, vars: Record<string, string>): string {
 export async function generateConfigs(answers: GeneratorAnswers): Promise<GeneratedFiles> {
   const config = deriveConfig(answers);
   const version = answers.version;
-  const [onstepx, plugins, swsConfig, swsExtended] = await Promise.all([
+  const [onstepx, onstepxExtended, plugins, swsConfig, swsExtended] = await Promise.all([
     loadTemplate(version, "onstepx.h"),
+    loadTemplate(version, "onstepx-extended.h"),
     loadTemplate(version, "plugins.h"), // static: enables the website plugin
     loadTemplate(version, "sws.h"),
     loadTemplate(version, "sws-extended.h"),
@@ -41,6 +42,7 @@ export async function generateConfigs(answers: GeneratorAnswers): Promise<Genera
   return {
     onstepx: {
       "Config.h": substitute(onstepx, config),
+      "Extended.config.h": substitute(onstepxExtended, config),
       "Plugins.config.h": plugins,
     },
     sws: {
