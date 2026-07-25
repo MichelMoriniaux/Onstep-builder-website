@@ -1,7 +1,8 @@
 import Docker from "dockerode";
+import { promises as fs } from "node:fs";
 import { FirmwareTarget } from "@onstep/shared";
 import { config } from "./config.js";
-import { hostTargetInDir, hostTargetOutDir } from "./store.js";
+import { hostTargetInDir, hostTargetOutDir, targetOutDir } from "./store.js";
 
 export const docker = new Docker(); // talks to /var/run/docker.sock (or npipe on Windows)
 
@@ -28,6 +29,11 @@ export async function runBuildContainer(
 ): Promise<RunResult> {
   const hostIn = hostTargetInDir(id, fw);
   const hostOut = hostTargetOutDir(id, fw);
+
+  // The runner runs as a non-root user (uid 10001); make the bind-mounted out
+  // dir writable by it (matters on Linux, where bind mounts keep host perms).
+  await fs.mkdir(targetOutDir(id, fw), { recursive: true }).catch(() => {});
+  await fs.chmod(targetOutDir(id, fw), 0o777).catch(() => {});
 
   const container = await docker.createContainer({
     Image: config.runnerImage,

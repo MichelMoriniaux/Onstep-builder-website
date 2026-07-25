@@ -1,0 +1,54 @@
+# Production stack for a single Linux host where the HOST nginx serves the static
+# web app and proxies /api. This compose runs only the backend: redis + api + worker.
+# The api is published on localhost only; nginx proxies to it.
+#
+# Prereqs:
+#   - docker build -t onstep-builder-runner ./runner   (build the runner image once)
+#   - cp .env.example .env  and set HOST_DATA_DIR to the ABSOLUTE host path of ./data
+#   - build the web separately and serve apps/web/dist via nginx (see DEPLOY.md)
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /app/data
+      PORT: "8080"
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:8080:8080" # localhost only; the host nginx proxies /api here
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATA_DIR: /app/data
+      # Host-visible path to ./data so runner bind mounts resolve on the daemon.
+      JOBS_HOST_DIR: ${HOST_DATA_DIR}
+      RUNNER_IMAGE: onstep-builder-runner
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      BUILD_TIMEOUT_MS: ${BUILD_TIMEOUT_MS:-900000}
+      ARTIFACT_TTL_HOURS: ${ARTIFACT_TTL_HOURS:-24}
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

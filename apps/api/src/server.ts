@@ -58,7 +58,8 @@ const answersSchema = z
 type Collected = Map<FirmwareTarget, Map<string, Buffer>>;
 
 export async function buildServer() {
-  const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024 });
+  // trustProxy: behind nginx, use X-Forwarded-For so rate limiting sees real client IPs.
+  const app = Fastify({ logger: true, bodyLimit: 2 * 1024 * 1024, trustProxy: true });
 
   await app.register(cors, { origin: config.corsOrigin });
   await app.register(rateLimit, {
