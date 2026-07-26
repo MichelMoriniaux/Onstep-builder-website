@@ -7,6 +7,13 @@ import { targetOutDir } from "./store.js";
 const BINARY_EXT = [".bin"];
 const isBinary = (f: string) => BINARY_EXT.some((e) => f.endsWith(e));
 
+// Prebuilt firmware-uploader installer the runner emits (compiled bins injected
+// into its bin/ folder). Surfaced as a downloadable artifact when present.
+const INSTALLER_NAME: Record<FirmwareTarget, string> = {
+  onstepx: "JTW.Firmware.Uploader.OnStepX.zip",
+  sws: "JTW.Firmware.Uploader.Smart.Web.Server.zip",
+};
+
 /** Read the runner's result.json, if present. */
 export async function readResult(
   id: string,
@@ -38,8 +45,11 @@ export async function packageArtifacts(
     `${FIRMWARE_LABELS[fw]} firmware`
   );
 
+  // The runner's installer zip (if it was produced) is listed first as the
+  // primary deliverable, followed by the loose bins and the plain firmware zip.
+  const installer = INSTALLER_NAME[fw];
   const artifacts: ArtifactInfo[] = [];
-  for (const f of [...bins, zipName]) {
+  for (const f of [installer, ...bins, zipName]) {
     const st = await fs.stat(path.join(outDir, f)).catch(() => null);
     if (st) artifacts.push({ name: f, size: st.size });
   }

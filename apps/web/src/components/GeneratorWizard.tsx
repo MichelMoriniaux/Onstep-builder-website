@@ -5,6 +5,7 @@ import {
   GeneratorAnswers,
   MountTypeId,
   MountVersion,
+  wifiActive,
 } from "@onstep/shared";
 
 interface Props {
@@ -20,10 +21,9 @@ export function GeneratorWizard({ answers, onChange }: Props) {
   const set = (patch: Partial<GeneratorAnswers>) => onChange({ ...answers, ...patch });
   const hasEncoder = answers.encoder !== "OFF";
   const wifiOn = answers.wifi_enabled === "true";
-  const staOn = wifiOn && answers.wifi_sta === "true";
 
-  // NTP needs station Wi-Fi.
-  const tlsOpts = GEN_OPTIONS.tls.filter((o) => o.value !== "NTP" || staOn);
+  // NTP needs Wi-Fi active (enabled with AP or station on).
+  const tlsOpts = GEN_OPTIONS.tls.filter((o) => o.value !== "NTP" || wifiActive(answers));
 
   return (
     <div className="space-y-8">
@@ -119,7 +119,21 @@ export function GeneratorWizard({ answers, onChange }: Props) {
               <Select label="Axis 2 encoder reverse" value={answers.axis2_encoder_reverse} options={GEN_OPTIONS.onOff} onChange={(v) => set({ axis2_encoder_reverse: v })} />
             </>
           )}
+          {!hasEncoder && (
+            <>
+              <Text label="Axis 1 slew current (mA, or OFF)" value={answers.axis1_igoto} onChange={(v) => set({ axis1_igoto: v })} mono />
+              <Text label="Axis 2 slew current (mA, or OFF)" value={answers.axis2_igoto} onChange={(v) => set({ axis2_igoto: v })} mono />
+              <Text label="Axis 1 slew microsteps (or OFF)" value={answers.axis1_microsteps_goto} onChange={(v) => set({ axis1_microsteps_goto: v })} mono />
+              <Text label="Axis 2 slew microsteps (or OFF)" value={answers.axis2_microsteps_goto} onChange={(v) => set({ axis2_microsteps_goto: v })} mono />
+            </>
+          )}
         </Grid>
+        {!hasEncoder && (
+          <p className="text-xs text-slate-500 mt-2">
+            Tracking microsteps are fixed at 256. Slew current (IGOTO) and slew microsteps apply during
+            gotos — encoder mounts force both OFF.
+          </p>
+        )}
         </Subsection>
 
         <Subsection title="Homing">
@@ -170,6 +184,15 @@ export function GeneratorWizard({ answers, onChange }: Props) {
           )}
           <Select label="Weather probe (TPH)" value={answers.weather_mode} options={GEN_OPTIONS.weather_mode} onChange={(v) => set({ weather_mode: v, display_weather: v !== "OFF" ? "ON" : "OFF" })} />
           <Select label="Clock source" value={answers.tls} options={tlsOpts} onChange={(v) => set({ tls: v })} />
+          {answers.tls !== "DS3231" && (
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Fallback clock source</span>
+              <div className="mt-1 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-500">
+                Onboard RTC (DS3231)
+              </div>
+              <span className="mt-1 block text-xs text-slate-500">Always used behind NTP/GPS.</span>
+            </label>
+          )}
           {answers.tls === "NTP" && answers.version === "10.28u" && (
             <Text label="NTP server IP" value={answers.time_ip_addr} onChange={(v) => set({ time_ip_addr: v })} mono />
           )}

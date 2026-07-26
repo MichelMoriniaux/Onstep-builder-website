@@ -47,6 +47,12 @@ RUN mkdir -p ${SOURCES} \
     && git clone https://github.com/hjd1964/SmartWebServer.git  ${SOURCES}/SmartWebServer \
     && git clone https://github.com/hjd1964/OnStepX-Plugins.git ${SOURCES}/OnStepX-Plugins
 
+# Prebuilt firmware-uploader installers. build.sh drops the compiled *.bin files
+# into each installer's bin/ folder to produce a ready-to-run installer artifact.
+COPY JTW.Firmware.Uploader.OnStepX.zip \
+     JTW.Firmware.Uploader.Smart.Web.Server.zip \
+     /opt/runner/
+
 COPY build.sh /opt/runner/build.sh
 RUN chmod +x /opt/runner/build.sh
 

@@ -26,6 +26,78 @@ FQBN_PATH="esp32.esp32.esp32"   # arduino-cli's on-disk build subdir for the fqb
 log()  { echo "[$(date -u +%H:%M:%S)] $*"; }
 fail() { log "ERROR: $*"; write_result "$1" "error" ; exit 1; }
 
+RUNNER_DIR="${RUNNER_DIR:-/opt/runner}"
+
+# Read the compiled firmware's version from its sketch (#define FirmwareVersion*)
+# -> e.g. "10.28u" (OnStepX) or "2.10h" (SWS). Empty if it can't be parsed.
+read_fw_version() { # read_fw_version <sketch path>
+  [ -f "$1" ] || return 0
+  python3 - "$1" <<'PY'
+import re, sys
+txt = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+def grab(name):
+    m = re.search(r'#define\s+' + name + r'\s+(.+)', txt)
+    if not m: return ""
+    v = re.split(r'\s*//', m.group(1), 1)[0].strip()
+    if len(v) >= 2 and v[0] == '"' and v[-1] == '"': v = v[1:-1]
+    return v
+maj, mi, pa = grab("FirmwareVersionMajor"), grab("FirmwareVersionMinor"), grab("FirmwareVersionPatch")
+print(f"{maj}.{mi}{pa}" if maj else "")
+PY
+}
+
+# Bundle the compiled *.bin files into the matching prebuilt firmware-uploader
+# installer, placing them in the installer's bin/ folder and rewriting its
+# firmware.xml <version> to the version actually built. Emits the installer zip
+# into /out alongside the loose .bin files. Missing template => skipped (non-fatal).
+package_installer() { # package_installer <firmware> <version>
+  local fw="$1" version="${2:-}" zipsrc zipname folder
+  case "$fw" in
+    onstepx) zipsrc="${RUNNER_DIR}/JTW.Firmware.Uploader.OnStepX.zip"
+             zipname="JTW.Firmware.Uploader.OnStepX.zip"
+             folder="JTW Firmware Uploader OnStepX/bin" ;;
+    sws)     zipsrc="${RUNNER_DIR}/JTW.Firmware.Uploader.Smart.Web.Server.zip"
+             zipname="JTW.Firmware.Uploader.Smart.Web.Server.zip"
+             folder="JTW Firmware Uploader Smart Web Server/bin" ;;
+    *)       return 0 ;;
+  esac
+  if [ ! -f "$zipsrc" ]; then
+    log "installer template ${zipsrc} not found in image; skipping installer"
+    return 0
+  fi
+  shopt -s nullglob
+  local bins=( /out/*.bin )
+  shopt -u nullglob
+  if [ "${#bins[@]}" -eq 0 ]; then
+    log "no .bin files to place in installer; skipping installer"
+    return 0
+  fi
+  # Rebuild the archive: copy every original entry (rewriting firmware.xml's
+  # <version> when a version is known) and add the compiled bins. This keeps the
+  # installer's own files intact (boot_app0.bin, esptool/, ...).
+  python3 - "$zipsrc" "/out/${zipname}" "$folder" "$version" "${bins[@]}" <<'PY' \
+    || fail "failed to build installer ${zipname}"
+import os, re, sys, zipfile
+src, dst, folder, version = sys.argv[1:5]
+bins = sys.argv[5:]
+xml_path = f"{folder}/firmware.xml"
+with zipfile.ZipFile(src, "r") as zin, \
+     zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+    for item in zin.infolist():
+        data = zin.read(item.filename)
+        if version and item.filename == xml_path:
+            text = data.decode("utf-8", "replace")
+            text = re.sub(r"<version>.*?</version>",
+                          f"<version>Firmware Version {version}</version>",
+                          text, flags=re.S)
+            data = text.encode("utf-8")
+        zout.writestr(item, data)
+    for b in bins:
+        zout.write(b, arcname=f"{folder}/{os.path.basename(b)}")
+PY
+  log "Built installer ${zipname} (version ${version:-unknown}) with ${#bins[@]} firmware .bin file(s) in '${folder}/'"
+}
+
 # --- tiny JSON helpers (no jq dependency at runtime) ---------------------------
 spec_get() { # spec_get <key>  -> value (strings/bools/simple only)
   python3 -c "import json,sys;print(json.load(open('/in/spec.json')).get(sys.argv[1],''))" "$1" 2>/dev/null
@@ -94,6 +166,12 @@ build() {
   fi
   log "Building commit $(git -C "$src" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
+  # Firmware version (from the checked-out sketch) — used for the installer's
+  # firmware.xml. Read before configs are injected so it reflects the source.
+  local fwver
+  fwver="$(read_fw_version "${src}/${sketch}")"
+  log "Firmware version: ${fwver:-unknown}"
+
   # ---- inject config files --------------------------------------------------
   cp /in/Config.h "${src}/Config.h"
   log "Injected Config.h"
@@ -143,6 +221,10 @@ build() {
   done
   shopt -u nullglob
   [ "$n" -gt 0 ] || fail "no artifacts produced"
+
+  # ---- bundle the firmware-uploader installer -------------------------------
+  package_installer "$firmware" "$fwver"
+
   # result.json lists whatever now sits in ARTDIR
   export ARTDIR="/out"
   write_result "built ${n} artifact(s)" "success"

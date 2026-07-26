@@ -15,6 +15,24 @@ proxies `/api` to it.
                                     docker run onstep-builder-runner  (per build)
 ```
 
+## Quick path: the `jtwgen.sh` management script
+
+`deploy/jtwgen.sh` automates everything below (install, update, and day-to-day ops). Run it from a
+checkout of the repo in the deploy dir (e.g. `/var/www/jtwgen`):
+
+```bash
+sudo ./deploy/jtwgen.sh prereqs          # once: Docker + compose + Node.js (root)
+#   log out/in so the docker group applies, then:
+./deploy/jtwgen.sh install --with-nginx  # build web + runner, start backend, install nginx site
+#   ...later, to deploy new code:
+./deploy/jtwgen.sh update                # git pull, rebuild web, restart backend, rebuild runner
+./deploy/jtwgen.sh help                  # full command list
+```
+
+Other commands: `web`, `runner`, `backend`, `nginx`, `start|stop|restart|down`, `status`,
+`logs [api|worker|redis]`, `health`. Paths/names are overridable via env vars (`WEB_DIR`,
+`DATA_DIR`, `RUNNER_IMAGE`, `NGINX_SITE`, …). The manual steps below document what it does.
+
 ## 0. Prerequisites (once)
 
 ```bash
@@ -114,6 +132,9 @@ sudo certbot --nginx -d jtwgen.short-circuit.org
 certbot rewrites the site to listen on 443 and redirect 80 → 443.
 
 ## Updating / redeploying
+
+Simplest: `./deploy/jtwgen.sh update` (add `--skip-runner` to skip the runner image rebuild, or
+`--no-pull` to deploy the working tree without `git pull`). The equivalent manual steps:
 
 ```bash
 cd /var/www/jtwgen

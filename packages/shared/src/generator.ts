@@ -42,6 +42,13 @@ export interface GeneratorAnswers {
   compensation: string;
   encoder: string; // OFF | JTW_24BIT | JTW_26BIT | AS37_H39B_B
 
+  // Drivetrain (non-encoder mounts only; encoder/servo mounts force these OFF).
+  // MICROSTEPS is always 256 and not user-settable.
+  axis1_igoto: string; // AXIS1_DRIVER_IGOTO (mA during slews) or OFF
+  axis2_igoto: string;
+  axis1_microsteps_goto: string; // AXIS1_DRIVER_MICROSTEPS_GOTO or OFF
+  axis2_microsteps_goto: string;
+
   // Reversal (per axis)
   axis1_reverse: string; // OFF | ON  (motor / movement direction)
   axis2_reverse: string;
@@ -115,7 +122,7 @@ export interface GeneratorAnswers {
   eth_mask: string;
   eth_gw: string;
   weather_mode: string; // OFF | BME280_0x76
-  tls: string; // DS3231 | NTP | GPS
+  tls: string; // DS3231 | NTP | GPS (fallback is forced to DS3231 behind NTP/GPS)
   time_ip_addr: string; // NTP server IP (10.28u; only used when tls=NTP)
   pps: string; // OFF | ON
   pps_detect: string; // OFF | HIGH | LOW | BOTH
@@ -236,7 +243,7 @@ export const GEN_OPTIONS = {
   ] as GenOption[],
   tls: [
     { value: "DS3231", label: "Onboard RTC (DS3231)", help: "Preferred." },
-    { value: "NTP", label: "NTP server", help: "Requires station Wi-Fi; uses time-a-g.nist.gov." },
+    { value: "NTP", label: "NTP server", help: "Requires Wi-Fi; uses time-a-g.nist.gov." },
     { value: "GPS", label: "GPS dongle on AUX", help: "Not recommended — slow fix can time out." },
   ] as GenOption[],
   pps: [
@@ -334,9 +341,9 @@ const ADVANCED_DEFAULTS: Record<string, string> = {
   axis2_servo_fltr_variance: SERVO_DEFAULTS.fltr_variance,
   home_range_axis1: "648000",
   home_range_axis2: "648000",
-  mount_coords_memory: "OFF",
+  mount_coords_memory: "ON",
   mount_enable_in_standby: "OFF",
-  status_buzzer_default: "OFF",
+  status_buzzer_default: "ON",
   status_buzzer_memory: "ON",
   st4_interface: "ON",
   st4_hand_control: "ON",
@@ -353,7 +360,7 @@ const ADVANCED_DEFAULTS: Record<string, string> = {
   mflip_automatic_memory: "ON",
   mflip_pause_home_default: "OFF",
   mflip_pause_home_memory: "ON",
-  pier_side_sync_change_sides: "OFF",
+  pier_side_sync_change_sides: "ON",
   pier_side_preferred_default: "EAST",
   pier_side_preferred_memory: "ON",
   align_auto_home: "OFF",
@@ -364,7 +371,7 @@ const ADVANCED_DEFAULTS: Record<string, string> = {
 export const GENERATOR_DEFAULTS: GeneratorConfig = {
   model: "GTR",
   options: " - ",
-  compensation: "OFF",
+  compensation: "REFRACTION_DUAL",
   wifi_mode: "WIFI_ACCESS_POINT",
   ap_enabled: "true",
   ap_ssid: "JTW Trident",
@@ -412,10 +419,12 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   pec_sense: "OFF",
   home_sense: "OFF",
   home_switch: "OFF",
-  axis1_microsteps: "OFF",
-  axis1_microsteps_goto: "OFF",
-  axis2_microsteps: "OFF",
-  axis2_microsteps_goto: "OFF",
+  axis1_microsteps: "256",
+  axis1_microsteps_goto: "256",
+  axis2_microsteps: "256",
+  axis2_microsteps_goto: "256",
+  axis1_igoto: "1500",
+  axis2_igoto: "1500",
   axis1_reverse: "OFF",
   axis2_reverse: "OFF",
   axis1_encoder_reverse: "OFF",
@@ -440,8 +449,12 @@ export const DEFAULT_ANSWERS: GeneratorAnswers = {
   mount_type: "GTR-base",
   version: DEFAULT_VERSION,
   model: "GTR",
-  compensation: "OFF",
+  compensation: "REFRACTION_DUAL",
   encoder: "OFF",
+  axis1_igoto: "1500",
+  axis2_igoto: "1500",
+  axis1_microsteps_goto: "256",
+  axis2_microsteps_goto: "256",
   axis1_reverse: "OFF",
   axis2_reverse: "OFF",
   axis1_encoder_reverse: "OFF",
@@ -660,23 +673,34 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
   c.weather_mode = a.weather_mode;
   c.time_ip_addr = normalizeIp(a.time_ip_addr); // NTP server IP (10.28u)
   let tls = a.tls;
-  if (tls === "NTP" && !staOn) tls = "DS3231";
+  if (tls === "NTP" && !active) tls = "DS3231"; // NTP needs Wi-Fi active
   c.tls = tls;
+  // Fallback clock source: DS3231 is mandatory behind NTP/GPS (they can fail),
+  // and OFF when the RTC is already the primary.
+  c.tls_fallback = tls !== "DS3231" ? "DS3231" : "OFF";
   if (tls === "GPS") {
-    c.tls_fallback = "DS3231";
     c.pps = a.pps;
     if (a.pps === "ON") c.pps_detect = a.pps_detect;
   }
 
-  // Inferred: encoder count + driver + servo microsteps.
+  // Inferred: encoder count + driver + drivetrain (microsteps / goto / igoto).
+  // MICROSTEPS is always 256 for both drivers. Encoder (servo) mounts force
+  // MICROSTEPS_GOTO + IGOTO OFF (required by OnStepX for SERVO_TMC2209); on
+  // non-encoder mounts both are user-settable.
   c.encoder_count = ENCODER_COUNTS[c.encoder] ?? "0";
   c.driver = c.encoder !== "OFF" ? "SERVO_TMC2209" : "TMC2209";
+  c.axis1_microsteps = "256";
+  c.axis2_microsteps = "256";
   if (c.driver === "SERVO_TMC2209") {
-    // OnStepX requires MICROSTEPS=256 / MICROSTEPS_GOTO=OFF for SERVO_TMC2209.
-    c.axis1_microsteps = "256";
-    c.axis2_microsteps = "256";
     c.axis1_microsteps_goto = "OFF";
     c.axis2_microsteps_goto = "OFF";
+    c.axis1_igoto = "OFF";
+    c.axis2_igoto = "OFF";
+  } else {
+    c.axis1_microsteps_goto = a.axis1_microsteps_goto || "256";
+    c.axis2_microsteps_goto = a.axis2_microsteps_goto || "256";
+    c.axis1_igoto = a.axis1_igoto || "1500";
+    c.axis2_igoto = a.axis2_igoto || "1500";
   }
 
   // Descriptive options string.
