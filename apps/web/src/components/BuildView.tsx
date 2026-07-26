@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import {
+  ArtifactInfo,
   BuildRecord,
   FIRMWARE_LABELS,
   FirmwareTarget,
@@ -93,34 +94,86 @@ function TargetPanel({ buildId, target }: { buildId: string; target: TargetResul
       )}
 
       {target.status === "success" && target.artifacts.length > 0 && (
-        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-          <div className="text-sm font-medium mb-2 text-slate-700 dark:text-slate-200">
-            Artifacts
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {target.artifacts.map((a) => (
-              <a
-                key={a.name}
-                href={artifactUrl(buildId, target.firmware, a.name)}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-mono ${
-                  a.name.endsWith(".zip")
-                    ? "bg-brand-600 text-white hover:bg-brand-700"
-                    : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
-                }`}
-                download
-              >
-                {a.name.endsWith(".zip") ? "⬇ " : ""}
-                {a.name}
-                <span className="opacity-60">{(a.size / 1024).toFixed(0)} KB</span>
-              </a>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            Flash with esptool at the standard ESP32 offsets: bootloader → 0x1000,
-            partitions → 0x8000, app <span className="font-mono">.ino.bin</span> → 0x10000.
-          </p>
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 space-y-4">
+          {(() => {
+            const installers = target.artifacts.filter((a) => isInstaller(a.name));
+            const binaries = target.artifacts.filter((a) => !isInstaller(a.name));
+            return (
+              <>
+                {installers.length > 0 && (
+                  <ArtifactSection
+                    title="Firmware installer"
+                    hint="Ready-to-run uploader — unzip and launch it to flash your board over USB."
+                    artifacts={installers}
+                    buildId={buildId}
+                    firmware={target.firmware}
+                  />
+                )}
+                {binaries.length > 0 && (
+                  <ArtifactSection
+                    title="Firmware binaries"
+                    artifacts={binaries}
+                    buildId={buildId}
+                    firmware={target.firmware}
+                  >
+                    <p className="mt-2 text-xs text-slate-500">
+                      Flash with esptool at the standard ESP32 offsets: bootloader → 0x1000,
+                      partitions → 0x8000, app <span className="font-mono">.ino.bin</span> → 0x10000.
+                    </p>
+                  </ArtifactSection>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Installer artifacts are the prebuilt firmware-uploader zips (see runner/build.sh). */
+function isInstaller(name: string): boolean {
+  return name.startsWith("JTW.Firmware.Uploader");
+}
+
+function ArtifactSection({
+  title,
+  hint,
+  artifacts,
+  buildId,
+  firmware,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  artifacts: ArtifactInfo[];
+  buildId: string;
+  firmware: FirmwareTarget;
+  children?: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="text-sm font-medium mb-1 text-slate-700 dark:text-slate-200">{title}</div>
+      {hint && <p className="mb-2 text-xs text-slate-500">{hint}</p>}
+      <div className="flex flex-wrap gap-2">
+        {artifacts.map((a) => (
+          <a
+            key={a.name}
+            href={artifactUrl(buildId, firmware, a.name)}
+            className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-mono ${
+              a.name.endsWith(".zip")
+                ? "bg-brand-600 text-white hover:bg-brand-700"
+                : "bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+            }`}
+            download
+          >
+            {a.name.endsWith(".zip") ? "⬇ " : ""}
+            {a.name}
+            <span className="opacity-60">{(a.size / 1024).toFixed(0)} KB</span>
+          </a>
+        ))}
+      </div>
+      {children}
     </div>
   );
 }
