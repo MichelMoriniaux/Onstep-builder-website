@@ -420,7 +420,7 @@ export const GENERATOR_DEFAULTS: GeneratorConfig = {
   home_sense: "OFF",
   home_switch: "OFF",
   axis1_microsteps: "256",
-  axis1_microsteps_goto: "256",
+  axis1_microsteps_goto: "32",
   axis2_microsteps: "256",
   axis2_microsteps_goto: "32",
   axis1_igoto: "1500",
@@ -453,7 +453,7 @@ export const DEFAULT_ANSWERS: GeneratorAnswers = {
   encoder: "OFF",
   axis1_igoto: "1500",
   axis2_igoto: "1500",
-  axis1_microsteps_goto: "256",
+  axis1_microsteps_goto: "32",
   axis2_microsteps_goto: "32",
   axis1_reverse: "OFF",
   axis2_reverse: "OFF",
@@ -697,8 +697,8 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     c.axis1_igoto = "OFF";
     c.axis2_igoto = "OFF";
   } else {
-    c.axis1_microsteps_goto = a.axis1_microsteps_goto || "256";
-    c.axis2_microsteps_goto = a.axis2_microsteps_goto || "256";
+    c.axis1_microsteps_goto = a.axis1_microsteps_goto || "32";
+    c.axis2_microsteps_goto = a.axis2_microsteps_goto || "32";
     c.axis1_igoto = a.axis1_igoto || "1500";
     c.axis2_igoto = a.axis2_igoto || "1500";
   }
