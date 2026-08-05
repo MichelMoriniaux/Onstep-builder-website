@@ -25,9 +25,11 @@ interface Props {
   onToggle: (v: boolean) => void;
   state: FirmwareFormState;
   onChange: (s: FirmwareFormState) => void;
+  /** When true the git-ref inputs are prefilled from the chosen version and read-only. */
+  refsLocked?: boolean;
 }
 
-export function FirmwareCard({ firmware, enabled, onToggle, state, onChange }: Props) {
+export function FirmwareCard({ firmware, enabled, onToggle, state, onChange, refsLocked }: Props) {
   const files = ALLOWED_CONFIG_FILES[firmware];
   const defaultRef = DEFAULT_REFS[firmware];
 
@@ -71,6 +73,7 @@ export function FirmwareCard({ firmware, enabled, onToggle, state, onChange }: P
               placeholder={defaultRef}
               hint={`${FIRMWARE_LABELS[firmware]} source commit / tag / branch`}
               value={state.ref}
+              disabled={refsLocked}
               onChange={(v) => onChange({ ...state, ref: v })}
             />
             {firmware === "onstepx" && (
@@ -79,6 +82,7 @@ export function FirmwareCard({ firmware, enabled, onToggle, state, onChange }: P
                 placeholder={DEFAULT_REFS.plugins}
                 hint="OnStepX-Plugins commit / tag / branch"
                 value={state.pluginsRef}
+                disabled={refsLocked}
                 onChange={(v) => onChange({ ...state, pluginsRef: v })}
               />
             )}
@@ -149,12 +153,14 @@ function RefInput({
   placeholder,
   hint,
   value,
+  disabled,
   onChange,
 }: {
   label: string;
   placeholder: string;
   hint: string;
   value: string;
+  disabled?: boolean;
   onChange: (v: string) => void;
 }) {
   return (
@@ -164,8 +170,9 @@ function RefInput({
         type="text"
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-mono focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+        className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-mono focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800"
       />
       <span className="text-xs text-slate-500">{hint}</span>
     </label>

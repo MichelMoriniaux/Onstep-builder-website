@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
-import { FIRMWARES, FirmwareTarget, LIMITS, REQUIRED_CONFIG_FILE } from "@onstep/shared";
+import {
+  DEFAULT_VERSION,
+  FIRMWARES,
+  FirmwareTarget,
+  LIMITS,
+  MountVersion,
+  REQUIRED_CONFIG_FILE,
+  VERSION_LIST,
+  VERSIONS,
+} from "@onstep/shared";
 import { emptyFirmwareState, FirmwareCard, FirmwareFormState } from "./FirmwareCard.js";
 import { TargetInput } from "../api.js";
 
@@ -7,19 +16,45 @@ interface Props {
   onBuild: (targets: TargetInput[]) => Promise<void>;
 }
 
+/** Firmware version selector: the two pinned versions, "latest" (HEAD), or free-form refs. */
+type UploadVersion = MountVersion | "latest" | "custom";
+
+/** Refs a version implies for each repo. "latest" => "" (runner builds the default branch/HEAD). */
+function refsForVersion(v: UploadVersion): { onstepx: string; sws: string; plugins: string } {
+  if (v === "latest" || v === "custom") return { onstepx: "", sws: "", plugins: "" };
+  return { onstepx: VERSIONS[v].onstepx, sws: VERSIONS[v].sws, plugins: VERSIONS[v].plugins };
+}
+
 export function UploadPanel({ onBuild }: Props) {
   const [enabled, setEnabled] = useState<Record<FirmwareTarget, boolean>>({
     onstepx: true,
     sws: false,
   });
-  const [forms, setForms] = useState<Record<FirmwareTarget, FirmwareFormState>>({
-    onstepx: emptyFirmwareState(),
-    sws: emptyFirmwareState(),
+  const [version, setVersion] = useState<UploadVersion>(DEFAULT_VERSION);
+  const [forms, setForms] = useState<Record<FirmwareTarget, FirmwareFormState>>(() => {
+    const r = refsForVersion(DEFAULT_VERSION);
+    return {
+      onstepx: { ...emptyFirmwareState(), ref: r.onstepx, pluginsRef: r.plugins },
+      sws: { ...emptyFirmwareState(), ref: r.sws },
+    };
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selected = FIRMWARES.filter((f) => enabled[f]);
+  const refsLocked = version !== "custom";
+
+  // Switch version: pinned/latest overwrite the refs (and lock them); "custom"
+  // leaves whatever refs are present and unlocks the fields for editing.
+  function changeVersion(v: UploadVersion) {
+    setVersion(v);
+    if (v === "custom") return;
+    const r = refsForVersion(v);
+    setForms((f) => ({
+      onstepx: { ...f.onstepx, ref: r.onstepx, pluginsRef: r.plugins },
+      sws: { ...f.sws, ref: r.sws },
+    }));
+  }
 
   const validation = useMemo(() => {
     if (selected.length === 0) return "Select at least one firmware to build.";
@@ -52,6 +87,34 @@ export function UploadPanel({ onBuild }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-4">
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Firmware version
+          </span>
+          <select
+            value={version}
+            onChange={(e) => changeVersion(e.target.value as UploadVersion)}
+            className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+          >
+            {VERSION_LIST.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+            <option value="latest">latest (HEAD of all repos)</option>
+            <option value="custom">custom (enter refs manually)</option>
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">
+            {version === "custom"
+              ? "Enter a commit / tag / branch per repo below."
+              : version === "latest"
+              ? "Builds the default branch (main / HEAD) of each source repo."
+              : "Git refs are pinned to this version's source commits (shown below, read-only)."}
+          </span>
+        </label>
+      </div>
+
       {FIRMWARES.map((fw) => (
         <FirmwareCard
           key={fw}
@@ -60,6 +123,7 @@ export function UploadPanel({ onBuild }: Props) {
           onToggle={(v) => setEnabled((e) => ({ ...e, [fw]: v }))}
           state={forms[fw]}
           onChange={(s) => setForms((f) => ({ ...f, [fw]: s }))}
+          refsLocked={refsLocked}
         />
       ))}
 
@@ -76,8 +140,7 @@ export function UploadPanel({ onBuild }: Props) {
       </button>
 
       <p className="text-center text-xs text-slate-500">
-        Leave a ref blank to build the latest <span className="font-mono">main</span>. Configs are
-        limited to {LIMITS.maxConfigBytes / 1024} KB each.
+        Configs are limited to {LIMITS.maxConfigBytes / 1024} KB each.
       </p>
     </div>
   );
