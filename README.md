@@ -23,7 +23,7 @@ The UI offers two ways to supply the configuration:
    template substitution server-side.
 
    Configs are **version-targeted** (`VERSIONS` in `packages/shared/src/generator.ts`): each
-   firmware version (e.g. `10.28u`, `10.25p`) has its own template set under
+   firmware version (e.g. `10.28w`, `10.25p`) has its own template set under
    `apps/api/src/generator/templates/<version>/` and its own pinned source refs, which become the
    build's default refs. Generated configs are validated to compile at those refs.
 
@@ -139,10 +139,10 @@ source refs, and the generated configs are validated to compile at them.
 ```ts
 export const VERSIONS: Record<MountVersion, VersionRefs> = {
   "10.25p": { onstepx: "cecb810", plugins: "52a31e7", sws: "8ff13c3" },
-  "10.28u": { onstepx: "89c9ca4", plugins: "dfa9d91", sws: "193a818" },
+  "10.28w": { onstepx: "8500ed5", plugins: "dfa9d91", sws: "193a818" },
 };
-export const VERSION_LIST: MountVersion[] = ["10.28u", "10.25p"]; // dropdown order
-export const DEFAULT_VERSION: MountVersion = "10.28u";            // pre-selected
+export const VERSION_LIST: MountVersion[] = ["10.28w", "10.25p"]; // dropdown order
+export const DEFAULT_VERSION: MountVersion = "10.28w";            // pre-selected
 ```
 
 To change the refs or the default for an existing version, edit those three declarations.

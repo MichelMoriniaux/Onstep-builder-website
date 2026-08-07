@@ -9,7 +9,7 @@
 export type MountModel = "GTR" | "P75";
 
 /** Firmware version the templates + source refs are pinned to. */
-export type MountVersion = "10.25p" | "10.28u";
+export type MountVersion = "10.25p" | "10.28w";
 
 export interface VersionRefs {
   onstepx: string;
@@ -20,11 +20,11 @@ export interface VersionRefs {
 /** Source commits per firmware version. Templates live in templates/<version>/. */
 export const VERSIONS: Record<MountVersion, VersionRefs> = {
   "10.25p": { onstepx: "cecb810", plugins: "52a31e7", sws: "8ff13c3" },
-  "10.28u": { onstepx: "89c9ca4", plugins: "dfa9d91", sws: "193a818" },
+  "10.28w": { onstepx: "8500ed5", plugins: "dfa9d91", sws: "193a818" },
 };
 
-export const VERSION_LIST: MountVersion[] = ["10.28u", "10.25p"];
-export const DEFAULT_VERSION: MountVersion = "10.28u";
+export const VERSION_LIST: MountVersion[] = ["10.28w", "10.25p"];
+export const DEFAULT_VERSION: MountVersion = "10.28w";
 
 /** Mount-type presets (section 1) — pre-populate the detailed options. */
 export type MountTypeId =
@@ -98,7 +98,7 @@ export interface GeneratorAnswers {
   display_monitor: string; // auto: servo
   display_origin: string; // auto: servo
   display_calibration: string; // auto: servo
-  display_high_precision: string; // ON | OFF (10.28u only)
+  display_high_precision: string; // ON | OFF (10.28w only)
   home_switch: string; // HOME_SWITCH_DIRECTION_CONTROL (ON | OFF)
 
   // Wi-Fi (checkbox-gated; AP and station are independent and may both be on)
@@ -123,7 +123,7 @@ export interface GeneratorAnswers {
   eth_gw: string;
   weather_mode: string; // OFF | BME280_0x76
   tls: string; // DS3231 | NTP | GPS (fallback is forced to DS3231 behind NTP/GPS)
-  time_ip_addr: string; // NTP server IP (10.28u; only used when tls=NTP)
+  time_ip_addr: string; // NTP server IP (10.28w; only used when tls=NTP)
   pps: string; // OFF | ON
   pps_detect: string; // OFF | HIGH | LOW | BOTH
   nv_driver: string; // NV_MB85RC64 | NV_DEFAULT
@@ -221,7 +221,7 @@ export const GEN_OPTIONS = {
     { value: "P75-24b", label: "P75-24b", help: "P75 with 24-bit encoders." },
   ] as GenOption[],
   version: [
-    { value: "10.28u", label: "10.28u", help: "OnStepX 10.28u." },
+    { value: "10.28w", label: "10.28w", help: "OnStepX 10.28w." },
     { value: "10.25p", label: "10.25p", help: "OnStepX 10.25p." },
   ] as GenOption[],
   compensation: [
@@ -649,7 +649,7 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
     c.sta_enabled = "false";
     c.wifi_mode = "OFF";
   }
-  // mDNS server is only meaningful when Wi-Fi is active (OnStepX, 10.28u).
+  // mDNS server is only meaningful when Wi-Fi is active (OnStepX, 10.28w).
   c.mdns_server = active ? "ON" : "OFF";
 
   // Ethernet.
@@ -671,7 +671,7 @@ export function deriveConfig(a: GeneratorAnswers): GeneratorConfig {
 
   // Weather + clock. NTP only valid with station Wi-Fi.
   c.weather_mode = a.weather_mode;
-  c.time_ip_addr = normalizeIp(a.time_ip_addr); // NTP server IP (10.28u)
+  c.time_ip_addr = normalizeIp(a.time_ip_addr); // NTP server IP (10.28w)
   let tls = a.tls;
   if (tls === "NTP" && !active) tls = "DS3231"; // NTP needs Wi-Fi active
   c.tls = tls;

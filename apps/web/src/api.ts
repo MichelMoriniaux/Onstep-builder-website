@@ -11,6 +11,7 @@ export interface TargetInput {
   pluginsRef: string;
   files: Map<string, File>; // canonical name -> File
   patches?: File[]; // applied to the source repo in this order
+  pluginsPatches?: File[]; // OnStepX only: applied to the OnStepX-Plugins checkout
 }
 
 export async function submitBuild(targets: TargetInput[]): Promise<string> {
@@ -32,6 +33,9 @@ export async function submitBuild(targets: TargetInput[]): Promise<string> {
     // Patches: repeated field, order preserved by FormData + the server.
     for (const p of t.patches ?? []) {
       fd.append(`${t.firmware}:patchfile`, p, p.name);
+    }
+    for (const p of t.pluginsPatches ?? []) {
+      fd.append(`${t.firmware}:pluginspatchfile`, p, p.name);
     }
   }
   const res = await fetch("/api/builds", { method: "POST", body: fd });

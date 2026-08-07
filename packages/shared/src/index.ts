@@ -56,6 +56,8 @@ export interface RunnerSpec {
   hasPlugins: boolean;
   /** Patch files (in <in>/patches/), applied to the source repo in this order. */
   patches: string[];
+  /** Patch files (in <in>/plugins-patches/), applied to the OnStepX-Plugins checkout in order. */
+  pluginsPatches: string[];
 }
 
 export interface TargetResult {

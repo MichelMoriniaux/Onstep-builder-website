@@ -48,6 +48,7 @@ export function GeneratePanel({ onBuild }: Props) {
   const [content, setContent] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<Record<FirmwareTarget, boolean>>({ onstepx: true, sws: true });
   const [patches, setPatches] = useState<Record<FirmwareTarget, File[]>>({ onstepx: [], sws: [] });
+  const [pluginsPatches, setPluginsPatches] = useState<File[]>([]); // OnStepX-Plugins patches
   const [refs, setRefs] = useState<{ onstepx: string; sws: string; plugins: string }>({
     ...VERSIONS[DEFAULT_ANSWERS.version],
   });
@@ -101,7 +102,7 @@ export function GeneratePanel({ onBuild }: Props) {
         if (wifiNeedsPlugin(answers)) {
           oxFiles.set("Plugins.config.h", fileFrom(content["onstepx:Plugins.config.h"], "Plugins.config.h"));
         }
-        targets.push({ firmware: "onstepx", ref: refs.onstepx.trim(), pluginsRef: refs.plugins.trim(), files: oxFiles, patches: patches.onstepx });
+        targets.push({ firmware: "onstepx", ref: refs.onstepx.trim(), pluginsRef: refs.plugins.trim(), files: oxFiles, patches: patches.onstepx, pluginsPatches });
       }
       if (build.sws) {
         targets.push({
@@ -197,11 +198,14 @@ export function GeneratePanel({ onBuild }: Props) {
                 <details className="text-sm">
                   <summary className="cursor-pointer text-slate-500">
                     Advanced: source refs &amp; patches
-                    {patches[fw].length > 0 && (
-                      <span className="ml-2 text-xs text-slate-400">
-                        ({patches[fw].length} patch{patches[fw].length > 1 ? "es" : ""})
-                      </span>
-                    )}
+                    {(() => {
+                      const count = patches[fw].length + (fw === "onstepx" ? pluginsPatches.length : 0);
+                      return count > 0 ? (
+                        <span className="ml-2 text-xs text-slate-400">
+                          ({count} patch{count > 1 ? "es" : ""})
+                        </span>
+                      ) : null;
+                    })()}
                   </summary>
                   <div className="mt-3 space-y-4">
                     <div>
@@ -221,12 +225,22 @@ export function GeneratePanel({ onBuild }: Props) {
                       </p>
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Patches</div>
+                      <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        {FIRMWARE_LABELS[fw]} source patches
+                      </div>
                       <PatchUpload
                         patches={patches[fw]}
                         onChange={(p) => setPatches((s) => ({ ...s, [fw]: p }))}
                       />
                     </div>
+                    {fw === "onstepx" && (
+                      <div>
+                        <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                          OnStepX-Plugins patches
+                        </div>
+                        <PatchUpload patches={pluginsPatches} onChange={setPluginsPatches} />
+                      </div>
+                    )}
                   </div>
                 </details>
               </div>

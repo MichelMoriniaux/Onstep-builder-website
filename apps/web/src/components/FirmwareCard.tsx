@@ -13,6 +13,7 @@ export interface FirmwareFormState {
   ref: string;
   pluginsRef: string;
   patches: File[];
+  pluginsPatches: File[];
 }
 
 export const emptyFirmwareState = (): FirmwareFormState => ({
@@ -20,6 +21,7 @@ export const emptyFirmwareState = (): FirmwareFormState => ({
   ref: "",
   pluginsRef: "",
   patches: [],
+  pluginsPatches: [],
 });
 
 interface Props {
@@ -94,15 +96,33 @@ export function FirmwareCard({ firmware, enabled, onToggle, state, onChange, ref
           <details className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
             <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-300">
               Advanced: patches
-              {state.patches.length > 0 && (
-                <span className="ml-2 text-xs text-slate-400">({state.patches.length})</span>
+              {state.patches.length + state.pluginsPatches.length > 0 && (
+                <span className="ml-2 text-xs text-slate-400">
+                  ({state.patches.length + state.pluginsPatches.length})
+                </span>
               )}
             </summary>
-            <div className="mt-3">
-              <PatchUpload
-                patches={state.patches}
-                onChange={(patches) => onChange({ ...state, patches })}
-              />
+            <div className="mt-3 space-y-4">
+              <div>
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  {FIRMWARE_LABELS[firmware]} source patches
+                </div>
+                <PatchUpload
+                  patches={state.patches}
+                  onChange={(patches) => onChange({ ...state, patches })}
+                />
+              </div>
+              {firmware === "onstepx" && (
+                <div>
+                  <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    OnStepX-Plugins patches
+                  </div>
+                  <PatchUpload
+                    patches={state.pluginsPatches}
+                    onChange={(pluginsPatches) => onChange({ ...state, pluginsPatches })}
+                  />
+                </div>
+              )}
             </div>
           </details>
         </div>

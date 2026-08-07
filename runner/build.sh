@@ -28,28 +28,28 @@ fail() { log "ERROR: $*"; write_result "$1" "error" ; exit 1; }
 
 RUNNER_DIR="${RUNNER_DIR:-/opt/runner}"
 
-# Apply user-supplied patches (from /in/patches/, listed in spec.json "patches")
-# to the source repo, in order. Any failure aborts the build.
-apply_patches() { # apply_patches <repo dir>
-  local dir="$1" list p n=0
-  list="$(python3 -c "import json;print('\n'.join(json.load(open('/in/spec.json')).get('patches',[])))" 2>/dev/null)"
+# Apply user-supplied patches to a repo, in order. Any failure aborts the build.
+#   apply_patches <repo dir> <spec key> <patch subdir under /in>
+apply_patches() {
+  local dir="$1" key="$2" subdir="$3" list p n=0
+  list="$(python3 -c "import json,sys;print('\n'.join(json.load(open('/in/spec.json')).get(sys.argv[1],[])))" "$key" 2>/dev/null)"
   [ -n "$list" ] || return 0
-  log "Applying patches to $(basename "$dir") ..."
+  log "Applying ${key} to $(basename "$dir") ..."
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     case "$p" in */*|*..*) fail "unsafe patch name '${p}'";; esac
-    [ -f "/in/patches/${p}" ] || fail "patch '${p}' listed in spec but not found in /in/patches"
+    [ -f "/in/${subdir}/${p}" ] || fail "patch '${p}' listed in spec but not found in /in/${subdir}"
     log "  git apply ${p}"
-    git -C "$dir" apply --verbose "/in/patches/${p}" 2>&1 || fail "failed to apply patch '${p}'"
+    git -C "$dir" apply --verbose "/in/${subdir}/${p}" 2>&1 || fail "failed to apply patch '${p}'"
     n=$((n+1))
   done <<EOF
 ${list}
 EOF
-  log "Applied ${n} patch(es)."
+  log "Applied ${n} ${key}."
 }
 
 # Read the compiled firmware's version from its sketch (#define FirmwareVersion*)
-# -> e.g. "10.28u" (OnStepX) or "2.10h" (SWS). Empty if it can't be parsed.
+# -> e.g. "10.28w" (OnStepX) or "2.10h" (SWS). Empty if it can't be parsed.
 read_fw_version() { # read_fw_version <sketch path>
   [ -f "$1" ] || return 0
   python3 - "$1" <<'PY'
@@ -193,7 +193,7 @@ build() {
   log "Firmware version: ${fwver:-unknown}"
 
   # ---- apply patches (in order, before configs are injected) ----------------
-  apply_patches "$src"
+  apply_patches "$src" patches patches
 
   # ---- inject config files --------------------------------------------------
   cp /in/Config.h "${src}/Config.h"
@@ -217,6 +217,8 @@ build() {
         git -C "$plsrc" checkout --quiet --force "$pluginsRef" 2>/dev/null \
           || git -C "$plsrc" checkout --quiet --force FETCH_HEAD 2>/dev/null || true
       fi
+      # Apply plugins patches to the checkout before copying the website in.
+      apply_patches "$plsrc" pluginsPatches plugins-patches
       cp -r "${plsrc}/website" "${src}/src/plugins/"
       log "Copied OnStepX-Plugins/website into src/plugins/"
     fi

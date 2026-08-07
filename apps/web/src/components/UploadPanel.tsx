@@ -64,7 +64,7 @@ export function UploadPanel({ onBuild }: Props) {
       for (const f of Object.values(files)) {
         if (f && f.size > LIMITS.maxConfigBytes) return `${f.name} exceeds ${LIMITS.maxConfigBytes / 1024} KB.`;
       }
-      for (const p of forms[fw].patches) {
+      for (const p of [...forms[fw].patches, ...forms[fw].pluginsPatches]) {
         if (p.size > LIMITS.maxPatchBytes) return `${p.name} exceeds ${LIMITS.maxPatchBytes / 1024} KB.`;
       }
     }
@@ -84,6 +84,7 @@ export function UploadPanel({ onBuild }: Props) {
           pluginsRef: forms[fw].pluginsRef.trim(),
           files,
           patches: forms[fw].patches,
+          pluginsPatches: forms[fw].pluginsPatches,
         };
       });
       await onBuild(targets);

@@ -193,7 +193,7 @@ export function GeneratorWizard({ answers, onChange }: Props) {
               <span className="mt-1 block text-xs text-slate-500">Always used behind NTP/GPS.</span>
             </label>
           )}
-          {answers.tls === "NTP" && answers.version === "10.28u" && (
+          {answers.tls === "NTP" && answers.version === "10.28w" && (
             <Text label="NTP server IP" value={answers.time_ip_addr} onChange={(v) => set({ time_ip_addr: v })} mono />
           )}
           {answers.tls === "GPS" && (
@@ -220,7 +220,7 @@ export function GeneratorWizard({ answers, onChange }: Props) {
             <CheckRow label="Servo monitor" v={answers.display_monitor} on={(x) => set({ display_monitor: x })} />
             <CheckRow label="Servo origin controls" v={answers.display_origin} on={(x) => set({ display_origin: x })} />
             <CheckRow label="Servo calibration" v={answers.display_calibration} on={(x) => set({ display_calibration: x })} />
-            {answers.version === "10.28u" && (
+            {answers.version === "10.28w" && (
               <CheckRow label="High-precision coordinates" v={answers.display_high_precision} on={(x) => set({ display_high_precision: x })} />
             )}
             <CheckRow label="Home switch direction control" v={answers.home_switch} on={(x) => set({ home_switch: x })} />

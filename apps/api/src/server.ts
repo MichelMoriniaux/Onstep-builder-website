@@ -63,7 +63,7 @@ const specSchema = z.object({
 // every other field is a bounded string (merged onto DEFAULT_ANSWERS).
 const answersSchema = z
   .object({
-    version: z.enum(["10.25p", "10.28u"]),
+    version: z.enum(["10.25p", "10.28w"]),
     model: z.enum(["GTR", "P75"]),
   })
   .catchall(z.string().max(256));
@@ -130,6 +130,7 @@ export async function buildServer() {
       let specRaw: string | undefined;
       const collected: Collected = new Map();
       const patches: CollectedPatches = new Map();
+      const pluginsPatches: CollectedPatches = new Map();
 
       try {
         for await (const part of req.parts()) {
@@ -139,10 +140,12 @@ export async function buildServer() {
               await drain(part);
               return reply.code(400).send({ error: `bad file field '${part.fieldname}'` });
             }
-            // Patches: field `<fw>:patchfile`, actual name from the upload. Kept
-            // in upload order and applied to the source repo at build time.
-            if (filename === "patchfile") {
-              const list = patches.get(fw) ?? [];
+            // Patches: field `<fw>:patchfile` (source repo) or `<fw>:pluginspatchfile`
+            // (OnStepX-Plugins). Actual name from the upload; kept in upload order
+            // and applied at build time.
+            if (filename === "patchfile" || filename === "pluginspatchfile") {
+              const bucket = filename === "pluginspatchfile" ? pluginsPatches : patches;
+              const list = bucket.get(fw) ?? [];
               if (list.length >= LIMITS.maxPatches) {
                 await drain(part);
                 return reply.code(400).send({ error: `too many patches for ${fw} (max ${LIMITS.maxPatches})` });
@@ -154,7 +157,7 @@ export async function buildServer() {
               }
               const buf = await part.toBuffer(); // throws if over fileSize (patch cap)
               list.push({ name: stored, buf });
-              patches.set(fw, list);
+              bucket.set(fw, list);
               continue;
             }
             if (!ALLOWED_CONFIG_FILES[fw].includes(filename)) {
@@ -220,6 +223,15 @@ export async function buildServer() {
             await fs.writeFile(`${inDir}/patches/${p.name}`, p.buf);
           }
         }
+        // Plugins patches (OnStepX only) into <in>/plugins-patches/.
+        const targetPluginsPatches =
+          t.firmware === "onstepx" ? pluginsPatches.get(t.firmware) ?? [] : [];
+        if (targetPluginsPatches.length > 0) {
+          await ensureDir(`${inDir}/plugins-patches`);
+          for (const p of targetPluginsPatches) {
+            await fs.writeFile(`${inDir}/plugins-patches/${p.name}`, p.buf);
+          }
+        }
         const ref = (t.ref?.trim() || DEFAULT_REFS[t.firmware]) as string;
         const pluginsRef = (t.pluginsRef?.trim() || DEFAULT_REFS.plugins) as string;
         const runnerSpec: RunnerSpec = {
@@ -229,6 +241,7 @@ export async function buildServer() {
           hasExtended: files.has("Extended.config.h"),
           hasPlugins: t.firmware === "onstepx" && files.has("Plugins.config.h"),
           patches: targetPatches.map((p) => p.name),
+          pluginsPatches: targetPluginsPatches.map((p) => p.name),
         };
         await fs.writeFile(`${inDir}/spec.json`, JSON.stringify(runnerSpec, null, 2));
         targets.push({
