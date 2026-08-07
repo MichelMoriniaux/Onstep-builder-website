@@ -64,6 +64,9 @@ export function UploadPanel({ onBuild }: Props) {
       for (const f of Object.values(files)) {
         if (f && f.size > LIMITS.maxConfigBytes) return `${f.name} exceeds ${LIMITS.maxConfigBytes / 1024} KB.`;
       }
+      for (const p of forms[fw].patches) {
+        if (p.size > LIMITS.maxPatchBytes) return `${p.name} exceeds ${LIMITS.maxPatchBytes / 1024} KB.`;
+      }
     }
     return null;
   }, [selected, forms]);
@@ -75,7 +78,13 @@ export function UploadPanel({ onBuild }: Props) {
       const targets: TargetInput[] = selected.map((fw) => {
         const files = new Map<string, File>();
         for (const [name, file] of Object.entries(forms[fw].files)) if (file) files.set(name, file);
-        return { firmware: fw, ref: forms[fw].ref.trim(), pluginsRef: forms[fw].pluginsRef.trim(), files };
+        return {
+          firmware: fw,
+          ref: forms[fw].ref.trim(),
+          pluginsRef: forms[fw].pluginsRef.trim(),
+          files,
+          patches: forms[fw].patches,
+        };
       });
       await onBuild(targets);
     } catch (e) {

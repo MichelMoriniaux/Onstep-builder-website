@@ -6,17 +6,20 @@ import {
   FirmwareTarget,
   REQUIRED_CONFIG_FILE,
 } from "@onstep/shared";
+import { PatchUpload } from "./PatchUpload.js";
 
 export interface FirmwareFormState {
   files: Record<string, File | undefined>;
   ref: string;
   pluginsRef: string;
+  patches: File[];
 }
 
 export const emptyFirmwareState = (): FirmwareFormState => ({
   files: {},
   ref: "",
   pluginsRef: "",
+  patches: [],
 });
 
 interface Props {
@@ -87,6 +90,21 @@ export function FirmwareCard({ firmware, enabled, onToggle, state, onChange, ref
               />
             )}
           </div>
+
+          <details className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-300">
+              Advanced: patches
+              {state.patches.length > 0 && (
+                <span className="ml-2 text-xs text-slate-400">({state.patches.length})</span>
+              )}
+            </summary>
+            <div className="mt-3">
+              <PatchUpload
+                patches={state.patches}
+                onChange={(patches) => onChange({ ...state, patches })}
+              />
+            </div>
+          </details>
         </div>
       )}
     </div>

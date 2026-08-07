@@ -10,6 +10,7 @@ export interface TargetInput {
   ref: string;
   pluginsRef: string;
   files: Map<string, File>; // canonical name -> File
+  patches?: File[]; // applied to the source repo in this order
 }
 
 export async function submitBuild(targets: TargetInput[]): Promise<string> {
@@ -27,6 +28,10 @@ export async function submitBuild(targets: TargetInput[]): Promise<string> {
   for (const t of targets) {
     for (const [name, file] of t.files) {
       fd.append(`${t.firmware}:${name}`, file, name);
+    }
+    // Patches: repeated field, order preserved by FormData + the server.
+    for (const p of t.patches ?? []) {
+      fd.append(`${t.firmware}:patchfile`, p, p.name);
     }
   }
   const res = await fetch("/api/builds", { method: "POST", body: fd });

@@ -8,6 +8,7 @@ import {
   wifiNeedsPlugin,
 } from "@onstep/shared";
 import { GeneratorWizard } from "./GeneratorWizard.js";
+import { PatchUpload } from "./PatchUpload.js";
 import { generateConfigs, TargetInput } from "../api.js";
 import { highlightC } from "../highlight.js";
 
@@ -46,6 +47,7 @@ export function GeneratePanel({ onBuild }: Props) {
   // Editable content, keyed by "<firmware>:<filename>".
   const [content, setContent] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<Record<FirmwareTarget, boolean>>({ onstepx: true, sws: true });
+  const [patches, setPatches] = useState<Record<FirmwareTarget, File[]>>({ onstepx: [], sws: [] });
   const [refs, setRefs] = useState<{ onstepx: string; sws: string; plugins: string }>({
     ...VERSIONS[DEFAULT_ANSWERS.version],
   });
@@ -99,7 +101,7 @@ export function GeneratePanel({ onBuild }: Props) {
         if (wifiNeedsPlugin(answers)) {
           oxFiles.set("Plugins.config.h", fileFrom(content["onstepx:Plugins.config.h"], "Plugins.config.h"));
         }
-        targets.push({ firmware: "onstepx", ref: refs.onstepx.trim(), pluginsRef: refs.plugins.trim(), files: oxFiles });
+        targets.push({ firmware: "onstepx", ref: refs.onstepx.trim(), pluginsRef: refs.plugins.trim(), files: oxFiles, patches: patches.onstepx });
       }
       if (build.sws) {
         targets.push({
@@ -110,6 +112,7 @@ export function GeneratePanel({ onBuild }: Props) {
             ["Config.h", fileFrom(content["sws:Config.h"], "Config.h")],
             ["Extended.config.h", fileFrom(content["sws:Extended.config.h"], "Extended.config.h")],
           ]),
+          patches: patches.sws,
         });
       }
       if (targets.length === 0) {
@@ -168,35 +171,66 @@ export function GeneratePanel({ onBuild }: Props) {
             })}
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-4">
+          <div className="space-y-4">
             <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Build</div>
-            <div className="flex flex-wrap gap-4">
-              {(["onstepx", "sws"] as FirmwareTarget[]).map((fw) => (
-                <label key={fw} className="flex items-center gap-2 text-sm">
+            {(["onstepx", "sws"] as FirmwareTarget[]).map((fw) => (
+              <div
+                key={fw}
+                className={`rounded-xl border p-4 space-y-3 transition ${
+                  build[fw]
+                    ? "border-brand-500 bg-white dark:bg-slate-800/60"
+                    : "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/20"
+                }`}
+              >
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-brand-600"
                     checked={build[fw]}
                     onChange={(e) => setBuild((b) => ({ ...b, [fw]: e.target.checked }))}
                   />
-                  {FIRMWARE_LABELS[fw]}
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {FIRMWARE_LABELS[fw]}
+                  </span>
                 </label>
-              ))}
-            </div>
-            <details className="text-sm">
-              <summary className="cursor-pointer text-slate-500">
-                Advanced: source refs (version {answers.version})
-              </summary>
-              <div className="mt-2 grid sm:grid-cols-3 gap-3">
-                <RefField label="OnStepX ref" value={refs.onstepx} onChange={(v) => updateRef("onstepx", v)} />
-                <RefField label="SWS ref" value={refs.sws} onChange={(v) => updateRef("sws", v)} />
-                <RefField label="Plugins ref" value={refs.plugins} onChange={(v) => updateRef("plugins", v)} />
+
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-slate-500">
+                    Advanced: source refs &amp; patches
+                    {patches[fw].length > 0 && (
+                      <span className="ml-2 text-xs text-slate-400">
+                        ({patches[fw].length} patch{patches[fw].length > 1 ? "es" : ""})
+                      </span>
+                    )}
+                  </summary>
+                  <div className="mt-3 space-y-4">
+                    <div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {fw === "onstepx" ? (
+                          <>
+                            <RefField label="OnStepX ref" value={refs.onstepx} onChange={(v) => updateRef("onstepx", v)} />
+                            <RefField label="Plugins ref" value={refs.plugins} onChange={(v) => updateRef("plugins", v)} />
+                          </>
+                        ) : (
+                          <RefField label="SWS ref" value={refs.sws} onChange={(v) => updateRef("sws", v)} />
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Refs are pinned to the source commits for version{" "}
+                        <span className="font-mono">{answers.version}</span>.
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Patches</div>
+                      <PatchUpload
+                        patches={patches[fw]}
+                        onChange={(p) => setPatches((s) => ({ ...s, [fw]: p }))}
+                      />
+                    </div>
+                  </div>
+                </details>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
-                Refs are pinned to the source commits for version{" "}
-                <span className="font-mono">{answers.version}</span>.
-              </p>
-            </details>
+            ))}
           </div>
         </>
       )}

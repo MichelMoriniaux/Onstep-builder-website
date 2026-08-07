@@ -29,6 +29,8 @@ export const DEFAULT_REFS = {
 export const LIMITS = {
   maxConfigBytes: 256 * 1024, // 256 KB per uploaded file
   maxRefLength: 200,
+  maxPatches: 20, // per firmware target
+  maxPatchBytes: 1024 * 1024, // 1 MB per patch file
 } as const;
 
 export type BuildOverallStatus =
@@ -52,6 +54,8 @@ export interface RunnerSpec {
   pluginsRef: string;
   hasExtended: boolean;
   hasPlugins: boolean;
+  /** Patch files (in <in>/patches/), applied to the source repo in this order. */
+  patches: string[];
 }
 
 export interface TargetResult {

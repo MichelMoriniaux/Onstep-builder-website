@@ -70,6 +70,18 @@ const answersSchema = z
 
 // In-memory collected upload: firmware -> filename -> buffer
 type Collected = Map<FirmwareTarget, Map<string, Buffer>>;
+// Patches collected in upload order: firmware -> [{ storedName, buf }]
+type CollectedPatches = Map<FirmwareTarget, { name: string; buf: Buffer }[]>;
+
+// Turn an uploaded patch's filename into a safe, order-preserving stored name.
+// Strips any path, restricts the charset, and prefixes a zero-padded index so
+// the on-disk order matches the upload order and names never collide.
+function safePatchName(raw: string, idx: number): string | null {
+  const base = (raw || "").split(/[\\/]/).pop() || "";
+  const cleaned = base.replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "");
+  if (!cleaned) return null;
+  return `${String(idx).padStart(3, "0")}_${cleaned}`.slice(0, 140);
+}
 
 export async function buildServer() {
   // trustProxy: behind nginx, use X-Forwarded-For so rate limiting sees real client IPs.
@@ -83,7 +95,9 @@ export async function buildServer() {
     timeWindow: config.rateLimit.windowMs,
   });
   await app.register(multipart, {
-    limits: { fileSize: config.maxConfigBytes, files: 8, fields: 4 },
+    // fileSize is a single global cap; patches may be larger than configs, so use
+    // the larger patch cap here and enforce the smaller config cap per-file below.
+    limits: { fileSize: LIMITS.maxPatchBytes, files: 64, fields: 4 },
   });
 
   app.get("/api/health", async () => ({ ok: true }));
@@ -115,6 +129,7 @@ export async function buildServer() {
     async (req, reply) => {
       let specRaw: string | undefined;
       const collected: Collected = new Map();
+      const patches: CollectedPatches = new Map();
 
       try {
         for await (const part of req.parts()) {
@@ -124,6 +139,24 @@ export async function buildServer() {
               await drain(part);
               return reply.code(400).send({ error: `bad file field '${part.fieldname}'` });
             }
+            // Patches: field `<fw>:patchfile`, actual name from the upload. Kept
+            // in upload order and applied to the source repo at build time.
+            if (filename === "patchfile") {
+              const list = patches.get(fw) ?? [];
+              if (list.length >= LIMITS.maxPatches) {
+                await drain(part);
+                return reply.code(400).send({ error: `too many patches for ${fw} (max ${LIMITS.maxPatches})` });
+              }
+              const stored = safePatchName(part.filename, list.length);
+              if (!stored) {
+                await drain(part);
+                return reply.code(400).send({ error: `invalid patch filename for ${fw}` });
+              }
+              const buf = await part.toBuffer(); // throws if over fileSize (patch cap)
+              list.push({ name: stored, buf });
+              patches.set(fw, list);
+              continue;
+            }
             if (!ALLOWED_CONFIG_FILES[fw].includes(filename)) {
               await drain(part);
               return reply
@@ -131,6 +164,9 @@ export async function buildServer() {
                 .send({ error: `'${filename}' not allowed for ${fw}` });
             }
             const buf = await part.toBuffer(); // throws if over fileSize limit
+            if (buf.length > config.maxConfigBytes) {
+              return reply.code(413).send({ error: `${filename} exceeds ${config.maxConfigBytes / 1024} KB` });
+            }
             if (!collected.has(fw)) collected.set(fw, new Map());
             collected.get(fw)!.set(filename, buf);
           } else if (part.fieldname === "spec") {
@@ -139,7 +175,7 @@ export async function buildServer() {
         }
       } catch (err: any) {
         if (err?.code === "FST_REQ_FILE_TOO_LARGE") {
-          return reply.code(413).send({ error: "config file too large" });
+          return reply.code(413).send({ error: "uploaded file too large" });
         }
         req.log.error(err);
         return reply.code(400).send({ error: "malformed upload" });
@@ -176,6 +212,14 @@ export async function buildServer() {
         for (const [name, buf] of files) {
           await fs.writeFile(`${inDir}/${name}`, buf);
         }
+        // Patches (in upload order) into <in>/patches/; spec lists them ordered.
+        const targetPatches = patches.get(t.firmware) ?? [];
+        if (targetPatches.length > 0) {
+          await ensureDir(`${inDir}/patches`);
+          for (const p of targetPatches) {
+            await fs.writeFile(`${inDir}/patches/${p.name}`, p.buf);
+          }
+        }
         const ref = (t.ref?.trim() || DEFAULT_REFS[t.firmware]) as string;
         const pluginsRef = (t.pluginsRef?.trim() || DEFAULT_REFS.plugins) as string;
         const runnerSpec: RunnerSpec = {
@@ -184,6 +228,7 @@ export async function buildServer() {
           pluginsRef,
           hasExtended: files.has("Extended.config.h"),
           hasPlugins: t.firmware === "onstepx" && files.has("Plugins.config.h"),
+          patches: targetPatches.map((p) => p.name),
         };
         await fs.writeFile(`${inDir}/spec.json`, JSON.stringify(runnerSpec, null, 2));
         targets.push({

@@ -28,6 +28,26 @@ fail() { log "ERROR: $*"; write_result "$1" "error" ; exit 1; }
 
 RUNNER_DIR="${RUNNER_DIR:-/opt/runner}"
 
+# Apply user-supplied patches (from /in/patches/, listed in spec.json "patches")
+# to the source repo, in order. Any failure aborts the build.
+apply_patches() { # apply_patches <repo dir>
+  local dir="$1" list p n=0
+  list="$(python3 -c "import json;print('\n'.join(json.load(open('/in/spec.json')).get('patches',[])))" 2>/dev/null)"
+  [ -n "$list" ] || return 0
+  log "Applying patches to $(basename "$dir") ..."
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p" in */*|*..*) fail "unsafe patch name '${p}'";; esac
+    [ -f "/in/patches/${p}" ] || fail "patch '${p}' listed in spec but not found in /in/patches"
+    log "  git apply ${p}"
+    git -C "$dir" apply --verbose "/in/patches/${p}" 2>&1 || fail "failed to apply patch '${p}'"
+    n=$((n+1))
+  done <<EOF
+${list}
+EOF
+  log "Applied ${n} patch(es)."
+}
+
 # Read the compiled firmware's version from its sketch (#define FirmwareVersion*)
 # -> e.g. "10.28u" (OnStepX) or "2.10h" (SWS). Empty if it can't be parsed.
 read_fw_version() { # read_fw_version <sketch path>
@@ -171,6 +191,9 @@ build() {
   local fwver
   fwver="$(read_fw_version "${src}/${sketch}")"
   log "Firmware version: ${fwver:-unknown}"
+
+  # ---- apply patches (in order, before configs are injected) ----------------
+  apply_patches "$src"
 
   # ---- inject config files --------------------------------------------------
   cp /in/Config.h "${src}/Config.h"
